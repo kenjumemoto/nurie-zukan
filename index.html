@@ -1,0 +1,1132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ぬりえずかん</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ぬりえずかん">
+<meta name="theme-color" content="#8fd3f4">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-180.png">
+<style>
+  :root {
+    --sky: #8fd3f4; --sky2: #bfe9fb;
+    --grass: #63c74d; --grass-dark: #3e8e41;
+    --dirt: #8b5a2b; --dirt-dark: #5c3a1b;
+    --paper: #fffdf6; --ink: #2b2118;
+    --ok: #4cbb3a; --ok-dark: #2f8a25;
+    --red: #e8322f; --red-dark: #a61d1b;
+    --blue: #3f8fe0; --blue-dark: #235e9c;
+    --gold: #f6c343; --gold-dark: #c98a12;
+    --pot: clamp(40px, 8.4vh, 70px);
+  }
+  html, body { height: 100%; margin: 0; }
+  [hidden] { display: none !important; }
+  body {
+    background: linear-gradient(180deg, var(--sky) 0%, var(--sky2) 100%);
+    color: var(--ink); overflow: hidden;
+    font-family: "Hiragino Maru Gothic ProN", "Arial Rounded MT Bold", sans-serif;
+    -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+    transition: background .8s;
+  }
+  body.night { background: linear-gradient(180deg, #0c1838 0%, #27407a 100%); }
+
+  /* the same world as COINQUEST: blocky clouds + grass/dirt strip */
+  .ground {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 0; pointer-events: none;
+    height: calc(46px + env(safe-area-inset-bottom));
+    background: linear-gradient(180deg, var(--grass) 0 14px, var(--grass-dark) 14px 18px, var(--dirt) 18px 100%);
+  }
+  .ground::before {
+    content: ""; position: absolute; inset: 0; opacity: .6;
+    background-image: repeating-linear-gradient(90deg, transparent 0 28px, rgba(0,0,0,.08) 28px 32px);
+  }
+  body.night .ground { filter: brightness(.45); }
+  .cloud {
+    position: fixed; top: 7%; width: 120px; height: 36px; background: #fff; opacity: .85; z-index: 0; pointer-events: none;
+    box-shadow: 24px -18px 0 0 #fff, 56px -12px 0 0 #fff, 76px 6px 0 0 #fff;
+    animation: drift 70s linear infinite;
+  }
+  .cloud.c2 { top: 18%; animation-duration: 95s; animation-delay: -40s; transform: scale(.7); }
+  @keyframes drift { from { left: -160px; } to { left: 110%; } }
+  body.night .cloud { opacity: 0; }
+
+  .scr {
+    position: fixed; inset: 0; z-index: 1; box-sizing: border-box; display: none;
+    padding: calc(10px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right))
+             calc(56px + env(safe-area-inset-bottom)) calc(14px + env(safe-area-inset-left));
+  }
+  .scr.on { display: flex; }
+
+  /* blocky buttons (COINQUEST style) */
+  .blk {
+    appearance: none; border: 4px solid var(--d, var(--blue-dark)); background: var(--b, var(--blue));
+    box-shadow: 0 7px 0 var(--d, var(--blue-dark)); color: #fff; padding: 0; margin: 0;
+    display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+    transition: transform .06s ease, box-shadow .06s ease;
+  }
+  .blk:active { transform: translateY(6px); box-shadow: 0 1px 0 var(--d, var(--blue-dark)); }
+  .blk svg { width: 58%; height: 58%; fill: #fff; stroke: none; filter: drop-shadow(0 3px 0 rgba(0,0,0,.25)); }
+  .blk.green { --b: var(--ok); --d: var(--ok-dark); }
+  .blk.red { --b: var(--red); --d: var(--red-dark); }
+  .blk.gold { --b: var(--gold); --d: var(--gold-dark); }
+  .pulse { animation: pulse 1.1s ease-in-out infinite; }
+  @keyframes pulse { 50% { transform: scale(1.09); } }
+
+  .cr { display: block; width: 100%; height: 100%; overflow: visible; }
+
+  /* ---------- start ---------- */
+  #scrStart { flex-direction: column; align-items: center; justify-content: center; gap: 3vh; }
+  #startArt { width: min(78vw, 62vh * 1.25); aspect-ratio: 5 / 4; animation: bob 2.4s ease-in-out infinite; transform-origin: 50% 90%; }
+  @keyframes bob { 50% { transform: translateY(-10px) rotate(-2deg); } }
+  #playBtn { width: clamp(96px, 17vh, 150px); height: clamp(96px, 17vh, 150px); border-radius: 0; }
+
+  /* ---------- pick ---------- */
+  #scrPick { align-items: center; justify-content: center; gap: 4vw; }
+  .pcard {
+    appearance: none; margin: 0; padding: 2%; cursor: pointer;
+    width: min(42vw, 66vh * 1.25); aspect-ratio: 5 / 4; box-sizing: border-box;
+    background: var(--paper); border: 5px solid var(--dirt-dark); box-shadow: 0 9px 0 var(--dirt-dark);
+    transition: transform .08s;
+  }
+  .pcard:active { transform: translateY(7px); box-shadow: 0 2px 0 var(--dirt-dark); }
+  .wiggle { animation: wiggle .7s ease-in-out; }
+  @keyframes wiggle { 20% { transform: rotate(-5deg) scale(1.04); } 50% { transform: rotate(5deg) scale(1.06); } 80% { transform: rotate(-2deg); } }
+  #bookBtn { position: absolute; top: calc(12px + env(safe-area-inset-top)); right: calc(16px + env(safe-area-inset-right)); width: 76px; height: 76px; }
+  @media (max-aspect-ratio: 1/1) {
+    #scrPick { flex-direction: column; }
+    .pcard { width: min(84vw, 34vh * 1.25); }
+  }
+
+  /* ---------- paint ---------- */
+  #scrPaint { gap: 18px; }
+  #artWrap { flex: 1; min-width: 0; min-height: 0; display: flex; align-items: center; justify-content: center; }
+  #art {
+    position: relative; flex: none; background: var(--paper); touch-action: none;
+    outline: 5px solid var(--dirt-dark); box-shadow: 0 10px 0 var(--dirt-dark);
+  }
+  #art > * { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
+  #trailCv { opacity: .4; transition: opacity .5s; }
+  #trailCv.fade { opacity: 0; }
+  #side { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; }
+  #pots { display: grid; grid-template-columns: repeat(2, var(--pot)); gap: calc(var(--pot) * .2); }
+  .pot {
+    appearance: none; border: 0; margin: 0; padding: 0; cursor: pointer;
+    width: var(--pot); height: var(--pot); border-radius: 50%; background: var(--c);
+    box-shadow: inset -6px -8px 0 rgba(0,0,0,.16), inset 6px 6px 0 rgba(255,255,255,.35), 0 5px 0 rgba(0,0,0,.28);
+    transition: transform .12s;
+  }
+  .pot.white { box-shadow: inset -6px -8px 0 rgba(0,0,0,.10), 0 0 0 2px #d9d2c3 inset, 0 5px 0 rgba(0,0,0,.28); }
+  .pot.rainbow { background: conic-gradient(#e8322f, #f7892b, #ffd42a, #3cb44b, #2f7de1, #8e4ec6, #ff7eb6, #e8322f); }
+  .pot.sel { transform: scale(1.2); box-shadow: 0 0 0 5px #fff, 0 0 0 9px var(--ink), 0 6px 0 9px rgba(0,0,0,.2); z-index: 1; }
+  #doneBtn { flex: none; width: calc(var(--pot) * 2.2); height: calc(var(--pot) * 1.5); visibility: hidden; }
+  #doneBtn.show { visibility: visible; animation: popin .4s ease-out; }
+  #doneBtn.show.pulse { animation: pulse 1.1s ease-in-out infinite; }
+  @media (max-aspect-ratio: 1/1) {
+    #scrPaint { flex-direction: column; }
+    #side { flex-direction: row; gap: 14px; }
+    #pots { grid-template-columns: repeat(6, var(--pot)); }
+    :root { --pot: min(11.5vw, 7vh, 64px); }
+    #doneBtn { width: calc(var(--pot) * 1.5); height: calc(var(--pot) * 2.2); }
+  }
+  @media (min-aspect-ratio: 1/1) and (max-height: 520px) {
+    :root { --pot: clamp(32px, 11vh, 52px); }
+    #side { gap: 12px; }
+    #pots { grid-template-columns: repeat(3, var(--pot)); }
+    #doneBtn { width: calc(var(--pot) * 3.4); height: calc(var(--pot) * 1.2); }
+  }
+
+  /* ---------- alive ---------- */
+  #scrAlive { flex-direction: column; align-items: center; justify-content: center; }
+  #aliveStage { position: relative; flex: 1; width: 100%; min-height: 0; display: flex; align-items: center; justify-content: center; padding-bottom: clamp(100px, 18vh, 150px); box-sizing: border-box; }
+  #aliveCr { width: min(88vw, (100vh - 90px - clamp(100px, 18vh, 150px)) * 1.25); aspect-ratio: 5 / 4; transform-origin: 50% 92%; cursor: pointer; }
+  #aliveCr.popin { animation: bigpop .7s cubic-bezier(.3,1.6,.5,1); }
+  @keyframes bigpop { from { transform: scale(.2) translateY(30%); opacity: 0; } to { transform: none; opacity: 1; } }
+  #aliveCr.dino.idle { animation: stomp 1.6s ease-in-out infinite; }
+  @keyframes stomp { 0%,100% { transform: rotate(0); } 25% { transform: rotate(-2deg) translateY(-8px); } 50% { transform: rotate(0); } 75% { transform: rotate(2deg) translateY(-8px); } }
+  #aliveCr.bug.idle { animation: hover 1.8s ease-in-out infinite; }
+  @keyframes hover { 50% { transform: translateY(-14px) rotate(-3deg); } }
+  #aliveCr.talk { animation: talk .18s linear infinite !important; }
+  @keyframes talk { 0%,100% { transform: scale(1.04) rotate(-1.5deg); } 50% { transform: scale(1.08) rotate(1.5deg) translateY(-6px); } }
+  #aliveCr.bug.fly { animation: fly 2.4s ease-in-out !important; }
+  @keyframes fly { 0% { transform: none; } 25% { transform: translate(-22vw, -18vh) rotate(-25deg) scale(.7); } 50% { transform: translate(0, -26vh) rotate(0) scale(.6); } 75% { transform: translate(22vw, -14vh) rotate(25deg) scale(.7); } 100% { transform: none; } }
+  #micBtn {
+    position: absolute; left: 50%; bottom: calc(62px + env(safe-area-inset-bottom)); transform: translateX(-50%);
+    width: clamp(84px, 15vh, 124px); height: clamp(84px, 15vh, 124px); border-radius: 50%;
+  }
+  #micBtn:active { transform: translateX(-50%) translateY(6px); }
+  #micBtn.pulse { animation: micpulse 1.1s ease-in-out infinite; }
+  @keyframes micpulse { 50% { transform: translateX(-50%) scale(1.1); } }
+  #micRing {
+    position: absolute; inset: -14px; border-radius: 50%; border: 8px solid #fff; opacity: 0; pointer-events: none;
+    transform: scale(var(--lv, 1)); transition: transform .08s linear;
+  }
+  #micBtn.listen { --b: #ff5a4f; }
+  #micBtn.listen #micRing { opacity: .9; }
+  #nextBtn { position: absolute; right: calc(16px + env(safe-area-inset-right)); bottom: calc(66px + env(safe-area-inset-bottom)); width: 104px; height: 88px; }
+
+  /* ---------- book ---------- */
+  #scrBook { flex-direction: column; align-items: center; justify-content: center; }
+  #bookGrid { display: grid; grid-template-columns: repeat(var(--cols, 2), 1fr); gap: 2.4vh 2.4vw; width: min(90vw, (100vh - 150px) * 1.3); max-height: 100%; overflow-y: auto; padding: 8px 8px 16px; box-sizing: border-box; }
+  .bcard {
+    appearance: none; margin: 0; padding: 4%; cursor: pointer; aspect-ratio: 5 / 4; box-sizing: border-box;
+    background: var(--paper); border: 4px solid var(--dirt-dark); box-shadow: 0 7px 0 var(--dirt-dark); position: relative;
+  }
+  .bcard.empty .cr { opacity: .35; }
+  .bcard.new { animation: newcard 1s cubic-bezier(.3,1.6,.5,1); outline: 6px solid var(--gold); outline-offset: 4px; }
+  @keyframes newcard { from { transform: scale(.3) rotate(-10deg); } to { transform: none; } }
+  #bookNext { position: absolute; right: calc(16px + env(safe-area-inset-right)); bottom: calc(66px + env(safe-area-inset-bottom)); width: 104px; height: 88px; }
+  @media (max-aspect-ratio: 1/1) { #bookGrid { --cols: 2 !important; } }
+
+  /* ---------- night ---------- */
+  #scrNight { flex-direction: column; align-items: center; justify-content: flex-end; }
+  #moon { position: absolute; top: 9%; right: 12%; width: 13vh; height: 13vh; border-radius: 50%; box-shadow: -3vh 2vh 0 0 #ffe9a3; transform: rotate(-20deg); }
+  .star { position: absolute; width: 8px; height: 8px; background: #fff; animation: twinkle 2s ease-in-out infinite; }
+  @keyframes twinkle { 50% { opacity: .2; } }
+  #sleepRow { display: flex; align-items: flex-end; justify-content: center; gap: 1vw; width: 100%; }
+  .sleeper { position: relative; width: min(22vw, 30vh * 1.25); aspect-ratio: 5 / 4; filter: brightness(.8) saturate(.9); animation: breathe 3s ease-in-out infinite; transform-origin: 50% 100%; }
+  @keyframes breathe { 50% { transform: scaleY(.96); } }
+  .zzz { position: absolute; top: -4%; right: 8%; color: #fff; font: 800 5vh/1 "Arial Rounded MT Bold", sans-serif; animation: zzz 3s ease-in infinite; }
+  @keyframes zzz { from { transform: translate(0, 0) scale(.6); opacity: 0; } 30% { opacity: 1; } to { transform: translate(3vw, -10vh) scale(1.2); opacity: 0; } }
+  #sunBtn { position: absolute; top: calc(14px + env(safe-area-inset-top)); left: calc(16px + env(safe-area-inset-left)); width: 84px; height: 84px; }
+
+  /* ---------- effects ---------- */
+  #hand { position: fixed; z-index: 9; font-size: 64px; pointer-events: none; transition: left .9s ease-in-out, top .9s ease-in-out, opacity .3s; opacity: 0; filter: drop-shadow(0 4px 2px rgba(0,0,0,.3)); }
+  .spark { position: fixed; z-index: 8; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; pointer-events: none; animation: spark .6s ease-out forwards; }
+  @keyframes spark { to { transform: translate(var(--dx), var(--dy)) scale(.2); opacity: 0; } }
+  @keyframes popin { from { transform: scale(.3); } to { transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .cloud { animation: none; left: 12%; } }
+
+  /* ---------- lab (for the developer only: #lab) ---------- */
+  #lab { display: none; }
+  body.lab #lab { display: grid; position: fixed; inset: 0; overflow: auto; z-index: 20; background: #fff; grid-template-columns: repeat(2, 1fr); gap: 8px; padding: 8px; }
+  body.lab #lab > div { border: 1px solid #ccc; aspect-ratio: 5 / 4; }
+</style>
+</head>
+<body>
+<div class="cloud"></div><div class="cloud c2"></div>
+<div class="ground"></div>
+
+<section id="scrStart" class="scr">
+  <div id="startArt"></div>
+  <button id="playBtn" class="blk green" aria-label="play"><svg viewBox="0 0 100 100"><path d="M30 18 L84 50 L30 82 Z"/></svg></button>
+</section>
+
+<section id="scrPick" class="scr">
+  <button class="pcard" id="pick0"></button>
+  <button class="pcard" id="pick1"></button>
+  <button id="bookBtn" class="blk gold" aria-label="book"><svg viewBox="0 0 100 100"><path d="M10 22 Q30 12 48 22 L48 86 Q30 76 10 86 Z M52 22 Q70 12 90 22 L90 86 Q70 76 52 86 Z"/></svg></button>
+</section>
+
+<section id="scrPaint" class="scr">
+  <div id="artWrap">
+    <div id="art">
+      <svg id="baseSvg" viewBox="0 0 1000 800"></svg>
+      <canvas id="paintCv"></canvas>
+      <canvas id="trailCv"></canvas>
+      <svg id="lineSvg" viewBox="0 0 1000 800"></svg>
+    </div>
+  </div>
+  <div id="side">
+    <div id="pots"></div>
+    <button id="doneBtn" class="blk green" aria-label="done"><svg viewBox="0 0 100 100"><path d="M14 52 L28 38 L43 53 L76 18 L90 32 L43 82 Z"/></svg></button>
+  </div>
+</section>
+
+<section id="scrAlive" class="scr">
+  <div id="aliveStage">
+    <div id="aliveCr"></div>
+  </div>
+  <button id="micBtn" class="blk red" aria-label="talk" hidden><span id="micRing"></span><svg viewBox="0 0 100 100"><rect x="36" y="10" width="28" height="50" rx="14"/><path d="M24 44 a26 26 0 0 0 52 0 h-8 a18 18 0 0 1 -36 0 z"/><rect x="46" y="70" width="8" height="14"/><rect x="32" y="82" width="36" height="8" rx="4"/></svg></button>
+  <button id="nextBtn" class="blk" aria-label="next" hidden><svg viewBox="0 0 100 100"><path d="M12 38 H56 V16 L92 50 L56 84 V62 H12 Z"/></svg></button>
+</section>
+
+<section id="scrBook" class="scr">
+  <div id="bookGrid"></div>
+  <button id="bookNext" class="blk" aria-label="next"><svg viewBox="0 0 100 100"><path d="M12 38 H56 V16 L92 50 L56 84 V62 H12 Z"/></svg></button>
+</section>
+
+<section id="scrNight" class="scr">
+  <div id="moon"></div>
+  <div id="stars"></div>
+  <div id="sleepRow"></div>
+  <button id="sunBtn" class="blk gold" aria-label="morning" hidden><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="20"/><g id="rays"><rect x="46" y="4" width="8" height="16" rx="3"/><rect x="46" y="80" width="8" height="16" rx="3"/><rect x="4" y="46" width="16" height="8" rx="3"/><rect x="80" y="46" width="16" height="8" rx="3"/><rect x="46" y="4" width="8" height="16" rx="3" transform="rotate(45 50 50)"/><rect x="46" y="80" width="8" height="16" rx="3" transform="rotate(45 50 50)"/><rect x="4" y="46" width="16" height="8" rx="3" transform="rotate(45 50 50)"/><rect x="80" y="46" width="16" height="8" rx="3" transform="rotate(45 50 50)"/></g></svg></button>
+</section>
+
+<div id="hand">👆</div>
+<div id="lab"></div>
+
+<script>
+(function () {
+  "use strict";
+  const $ = id => document.getElementById(id);
+  const VW = 1000, VH = 800, INK = "#2b2118", LW = 9, BRUSH = 40;
+  const SESSION_MAX = 3;   // colorings before "good night"
+
+  // ---------------------------------------------------------------
+  // SHAPE HELPERS (all art lives in a 1000 x 800 box)
+  // ---------------------------------------------------------------
+  const r1 = n => Math.round(n * 10) / 10;
+  function E(cx, cy, rx, ry, rot) {             // ellipse as a path (works in SVG and Path2D)
+    rot = rot || 0;
+    const a = rot * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
+    const x0 = r1(cx + rx * c), y0 = r1(cy + rx * s), x1 = r1(cx - rx * c), y1 = r1(cy - rx * s);
+    return "M" + x0 + " " + y0 + " A" + rx + " " + ry + " " + rot + " 0 1 " + x1 + " " + y1 + " A" + rx + " " + ry + " " + rot + " 0 1 " + x0 + " " + y0 + " Z";
+  }
+  function scallop(cx, cy, r, n, a0) {         // bumpy disc (triceratops frill)
+    const pt = a => [r1(cx + r * Math.cos(a * Math.PI / 180)), r1(cy + r * Math.sin(a * Math.PI / 180))];
+    let [x, y] = pt(a0), d = "M" + x + " " + y;
+    for (let k = 1; k <= n; k++) {
+      const [x2, y2] = pt(a0 + 360 * k / n), br = r1(Math.hypot(x2 - x, y2 - y) * 0.6);
+      d += " A" + br + " " + br + " 0 0 1 " + x2 + " " + y2; x = x2; y = y2;
+    }
+    return d + " Z";
+  }
+  function xf(d, map, flip) {                   // move/flip a path (absolute commands only)
+    const tk = d.match(/[A-Za-z]|-?\d*\.?\d+/g), argc = { M: 2, L: 2, C: 6, Q: 4, A: 7, Z: 0 };
+    const out = []; let cmd = "", i = 0;
+    while (i < tk.length) {
+      if (/[A-Za-z]/.test(tk[i])) { cmd = tk[i++]; out.push(cmd); if (cmd === "Z") continue; }
+      const a = tk.slice(i, i + argc[cmd]).map(Number); i += argc[cmd];
+      const from = cmd === "A" ? 5 : 0;
+      if (cmd === "A" && flip) { a[2] = -a[2]; a[4] = 1 - a[4]; }
+      for (let k = from; k < a.length; k += 2) { const m = map(a[k], a[k + 1]); a[k] = r1(m[0]); a[k + 1] = r1(m[1]); }
+      out.push(a.join(" "));
+    }
+    return out.join(" ");
+  }
+  const mirrorY = d => xf(d, (x, y) => [x, VH - y], true);
+  const shift = (d, dx, dy) => xf(d, (x, y) => [x + dx, y + dy], false);
+
+  // ---------------------------------------------------------------
+  // THE CREATURES
+  //   parts: back -> front. Each is a colorable region. w = a "limb" drawn as a thick line.
+  //   n = the English word said when a part is tapped ("Red tail!")
+  //   details: lines/eyes drawn on top of a part (hidden where a front part covers it)
+  // ---------------------------------------------------------------
+  const EYE = (x, y, r) => [{ d: E(x, y, r, r * 1.1), f: INK, s: 0 }, { d: E(x + r * .32, y - r * .4, r * .34, r * .36), f: "#fff", s: 0 }];
+  const SHINE = d => ({ d: d, c: "#fff", s: 11, o: .75 });
+
+  const CREATURES = [
+    {
+      id: "trex", name: "T-rex", kind: "dino",
+      shadow: E(460, 748, 250, 20),
+      parts: (function () {
+        const leg = "M 285 520 C 270 420 480 410 470 520 C 465 590 420 620 415 660 L 412 700 L 470 700 Q 506 702 506 722 Q 506 742 476 742 L 350 742 Q 330 742 332 722 Q 334 704 352 700 L 350 660 C 335 620 292 590 285 520 Z";
+        return [
+          { id: "tail", n: "tail", d: "M 300 380 C 220 368 120 330 40 262 C 70 372 180 500 330 552 Z" },
+          { id: "legF", n: "leg", d: shift(leg, 170, -8) },
+          { id: "neck", n: "neck", d: "M 530 318 C 580 280 660 272 694 300 L 700 404 C 650 440 580 458 536 446 Z" },
+          { id: "body", n: "body", d: E(430, 455, 215, 150, -15) },
+          { id: "belly", n: "belly", d: E(510, 490, 105, 72, -15) },
+          { id: "spot1", n: "spot", d: E(340, 372, 28, 22, -15) },
+          { id: "spot2", n: "spot", d: E(426, 338, 22, 18, -15) },
+          { id: "spot3", n: "spot", d: E(262, 418, 19, 16, -15) },
+          { id: "legN", n: "leg", d: leg },
+          { id: "head", n: "head", d: "M 575 175 C 610 115 760 100 845 138 C 895 160 915 215 905 268 C 897 312 866 336 822 342 L 705 356 C 645 364 596 362 568 332 C 528 290 535 222 575 175 Z" },
+          { id: "arm", n: "arm", d: "M 562 446 C 612 430 676 438 696 458 C 708 472 698 490 682 484 L 666 476 C 640 488 592 492 564 478 Z" }
+        ];
+      })(),
+      details: [
+        { on: "head", d: "M 903 276 C 860 302 770 314 688 302", s: 7 },
+        { on: "head", d: "M 726 306 L 738 328 L 750 307 Z", f: "#fff", s: 5 },
+        { on: "head", d: "M 778 307 L 790 329 L 802 307 Z", f: "#fff", s: 5 },
+        { on: "head", d: "M 830 301 L 841 321 L 852 297 Z", f: "#fff", s: 5 },
+        { on: "head", d: E(880, 200, 8, 6, -20), f: INK, s: 0 },
+        { on: "legN", d: "M 438 742 L 438 720", s: 6 },
+        { on: "legN", d: "M 472 742 L 472 722", s: 6 },
+        { on: "legF", d: "M 608 734 L 608 712", s: 6 },
+        { on: "legF", d: "M 642 734 L 642 714", s: 6 },
+        { on: "arm", d: "M 694 462 L 712 454", s: 6 },
+        { on: "arm", d: "M 690 480 L 706 488", s: 6 }
+      ].concat(EYE(772, 196, 27).map(e => Object.assign({ on: "head" }, e)))
+    },
+    {
+      id: "trike", name: "Triceratops", kind: "dino",
+      shadow: E(470, 750, 290, 20),
+      parts: [
+        { id: "tail", n: "tail", d: "M 230 410 C 160 420 95 455 40 505 C 110 520 180 525 250 515 Z" },
+        { id: "legFB", n: "leg", d: "M 335 480 L 335 690 Q 335 714 358 714 L 392 714 Q 415 714 415 690 L 415 480 Z" },
+        { id: "legFF", n: "leg", d: "M 578 480 L 578 690 Q 578 714 601 714 L 632 714 Q 655 714 655 690 L 655 480 Z" },
+        { id: "body", n: "body", d: E(440, 452, 265, 170) },
+        { id: "spot1", n: "spot", d: E(372, 340, 34, 25) },
+        { id: "spot2", n: "spot", d: E(270, 408, 25, 19) },
+        { id: "spot3", n: "spot", d: E(456, 318, 25, 19) },
+        { id: "legNB", n: "leg", d: "M 245 520 L 245 718 Q 245 744 272 744 L 322 744 Q 348 744 348 718 L 348 520 Z" },
+        { id: "legNF", n: "leg", d: "M 495 520 L 495 718 Q 495 744 522 744 L 572 744 Q 598 744 598 718 L 598 520 Z" },
+        { id: "frill", n: "frill", d: scallop(672, 318, 158, 13, 40) },
+        { id: "fspot1", n: "spot", d: E(560, 360, 17, 17) },
+        { id: "fspot2", n: "spot", d: E(548, 282, 17, 17) },
+        { id: "fspot3", n: "spot", d: E(592, 214, 17, 17) },
+        { id: "fspot4", n: "spot", d: E(664, 190, 17, 17) },
+        { id: "hornF", n: "horn", d: "M 700 318 C 712 250 748 190 812 145 C 800 205 782 262 758 318 Z" },
+        { id: "head", n: "head", d: "M 640 310 C 700 270 800 290 862 345 C 902 380 940 428 928 458 C 918 482 880 480 848 470 C 790 472 700 462 655 430 C 618 402 612 340 640 310 Z" },
+        { id: "hornN", n: "horn", d: "M 752 332 C 768 262 812 200 885 160 C 866 222 842 282 818 340 Z" },
+        { id: "hornS", n: "horn", d: "M 866 390 C 872 360 884 338 904 320 C 906 352 902 377 895 400 Z" }
+      ],
+      details: [
+        { on: "head", d: "M 928 460 C 890 462 830 456 790 440", s: 7 },
+        { on: "legNB", d: "M 256 744 Q 268 724 280 744", f: "#fff", s: 5 },
+        { on: "legNB", d: "M 285 744 Q 297 724 309 744", f: "#fff", s: 5 },
+        { on: "legNB", d: "M 314 744 Q 326 724 338 744", f: "#fff", s: 5 },
+        { on: "legNF", d: "M 506 744 Q 518 724 530 744", f: "#fff", s: 5 },
+        { on: "legNF", d: "M 535 744 Q 547 724 559 744", f: "#fff", s: 5 },
+        { on: "legNF", d: "M 564 744 Q 576 724 588 744", f: "#fff", s: 5 }
+      ].concat(EYE(770, 372, 20).map(e => Object.assign({ on: "head" }, e)))
+    },
+    {
+      id: "kabuto", name: "rhinoceros beetle", kind: "bug",
+      parts: (function () {
+        const legs = ["M 640 330 L 720 246 L 804 228", "M 520 282 L 560 178 L 632 124", "M 382 290 L 322 180 L 240 128"];
+        const L = legs.concat(legs.map(mirrorY)).map((d, i) => ({ id: "leg" + i, n: "leg", w: 32, d: d }));
+        return L.concat([
+          { id: "wingT", n: "wing", d: "M 560 400 A 215 152 0 0 0 130 400 Z" },
+          { id: "wingB", n: "wing", d: "M 560 400 A 215 152 0 0 1 130 400 Z" },
+          { id: "head", n: "head", d: E(716, 400, 62, 58) },
+          { id: "horn", n: "horn", d: "M 730 350 C 800 360 860 366 900 370 L 948 326 C 964 312 992 330 978 350 L 942 400 L 978 450 C 992 470 964 488 948 474 L 900 430 C 860 434 800 440 730 450 Z" },
+          { id: "chest", n: "body", d: E(608, 400, 108, 140) },
+          { id: "horn2", n: "horn", d: "M 640 380 C 680 378 705 380 720 385 L 746 366 C 757 359 767 373 758 384 L 745 400 L 758 416 C 767 427 757 441 746 434 L 720 415 C 705 420 680 422 640 420 Z" }
+        ]);
+      })(),
+      details: [
+        { on: "head", d: E(724, 352, 11, 9), f: INK, s: 0 },
+        { on: "head", d: E(724, 448, 11, 9), f: INK, s: 0 },
+        Object.assign({ on: "wingT" }, SHINE("M 250 330 Q 330 286 430 298")),
+        Object.assign({ on: "wingB" }, SHINE("M 250 470 Q 330 514 430 502")),
+        Object.assign({ on: "chest" }, SHINE("M 570 300 Q 600 282 640 290"))
+      ]
+    },
+    {
+      id: "kuwa", name: "stag beetle", kind: "bug",
+      parts: (function () {
+        const legs = ["M 600 320 L 690 236 L 772 214", "M 480 286 L 520 180 L 594 128", "M 340 292 L 282 184 L 200 132"];
+        const L = legs.concat(legs.map(mirrorY)).map((d, i) => ({ id: "leg" + i, n: "leg", w: 26, d: d }));
+        const jawT = "M 718 318 C 780 238 880 222 936 284 C 956 308 958 338 944 366 C 930 350 918 336 902 326 L 892 344 L 876 318 C 840 300 790 308 742 350 Z";
+        return L.concat([
+          { id: "wingT", n: "wing", d: "M 530 400 A 205 146 0 0 0 120 400 Z" },
+          { id: "wingB", n: "wing", d: "M 530 400 A 205 146 0 0 1 120 400 Z" },
+          { id: "jawT", n: "pincer", d: jawT },
+          { id: "jawB", n: "pincer", d: mirrorY(jawT) },
+          { id: "head", n: "head", d: "M 640 292 L 718 292 Q 752 292 752 326 L 752 474 Q 752 508 718 508 L 640 508 Z" },
+          { id: "chest", n: "body", d: "M 540 276 L 612 276 Q 650 276 650 314 L 650 486 Q 650 524 612 524 L 540 524 Q 502 524 502 486 L 502 314 Q 502 276 540 276 Z" }
+        ]);
+      })(),
+      details: [
+        { on: "head", d: E(730, 314, 11, 10), f: INK, s: 0 },
+        { on: "head", d: E(730, 486, 11, 10), f: INK, s: 0 },
+        Object.assign({ on: "wingT" }, SHINE("M 240 332 Q 320 290 410 300")),
+        Object.assign({ on: "wingB" }, SHINE("M 240 468 Q 320 510 410 500")),
+        Object.assign({ on: "chest" }, SHINE("M 530 306 Q 570 296 610 304"))
+      ]
+    }
+  ];
+  CREATURES.forEach(cr => {
+    const idx = {}; cr.parts.forEach((q, i) => { idx[q.id] = i; });
+    cr.details.forEach(d => { d.on = idx[d.on]; });
+  });
+  const byId = id => CREATURES.find(c => c.id === id);
+
+  // ---------------------------------------------------------------
+  // DRAWING THE ART AS SVG
+  // ---------------------------------------------------------------
+  let UID = 0;
+  const MB = 'maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse" x="-100" y="-100" width="1200" height="1000"';
+  const FULL = '<rect x="-100" y="-100" width="1200" height="1000" fill="#fff"/>';
+  function solidEl(q, col) {
+    return q.w
+      ? '<path d="' + q.d + '" fill="none" stroke="' + col + '" stroke-width="' + q.w + '" stroke-linecap="round" stroke-linejoin="round"/>'
+      : '<path d="' + q.d + '" fill="' + col + '"/>';
+  }
+  function artDefs(cr, p) {
+    const P = cr.parts;
+    let s = '<mask id="' + p + 's" ' + MB + '>' + P.map(q => solidEl(q, "#fff")).join("") + '</mask>';
+    P.forEach((q, i) => {
+      const front = P.slice(i + 1).map(r => solidEl(r, "#000")).join("");
+      if (front) s += '<mask id="' + p + 'f' + i + '" ' + MB + '>' + FULL + front + '</mask>';
+      if (q.w) s += '<mask id="' + p + 'o' + i + '" ' + MB + '>' + FULL + front +
+        '<path d="' + q.d + '" fill="none" stroke="#000" stroke-width="' + (q.w - LW) + '" stroke-linecap="round" stroke-linejoin="round"/></mask>';
+    });
+    return s;
+  }
+  const maskF = (cr, p, i) => i < cr.parts.length - 1 ? ' mask="url(#' + p + 'f' + i + ')"' : "";
+  function detailEl(d) {
+    return '<path d="' + d.d + '" fill="' + (d.f || "none") + '" stroke="' + (d.c || INK) + '" stroke-width="' + (d.s == null ? 6 : d.s) +
+      '" stroke-linecap="round" stroke-linejoin="round"' + (d.o ? ' opacity="' + d.o + '"' : "") + '/>';
+  }
+  function linesInner(cr, p) {
+    let s = "";
+    cr.parts.forEach((q, i) => {
+      if (q.w) s += '<path d="' + q.d + '" fill="none" stroke="' + INK + '" stroke-width="' + (q.w + LW) + '" stroke-linecap="round" stroke-linejoin="round" mask="url(#' + p + 'o' + i + ')"/>';
+      else s += '<path d="' + q.d + '" fill="none" stroke="' + INK + '" stroke-width="' + LW + '" stroke-linejoin="round"' + maskF(cr, p, i) + '/>';
+      const ds = cr.details.filter(d => d.on === i);
+      if (ds.length) s += '<g' + maskF(cr, p, i) + '>' + ds.map(detailEl).join("") + '</g>';
+    });
+    return s;
+  }
+  // a finished (or blank) creature, for the book / the stage / the start screen
+  function creatureSVG(cr, o) {
+    o = o || {};
+    const p = "c" + (++UID) + "_";
+    let s = '<svg class="cr" viewBox="0 0 ' + VW + ' ' + VH + '" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><defs>' + artDefs(cr, p) + '</defs>';
+    if (cr.shadow && !o.noShadow) s += '<path d="' + cr.shadow + '" fill="rgba(0,0,0,.10)"/>';
+    s += '<g>' + cr.parts.map(q => solidEl(q, "#fff")).join("") + '</g>';
+    if (o.img) s += '<image href="' + o.img + '" xlink:href="' + o.img + '" x="0" y="0" width="' + VW + '" height="' + VH + '" preserveAspectRatio="none" mask="url(#' + p + 's)"/>';
+    if (o.fills) cr.parts.forEach((q, i) => { const c = o.fills[q.id] || o.fills[q.n]; if (c) s += '<g' + maskF(cr, p, i) + '>' + solidEl(q, c) + '</g>'; });
+    return s + linesInner(cr, p) + '</svg>';
+  }
+
+  // ---------------------------------------------------------------
+  // SAVE (only the book: one picture per creature)
+  // ---------------------------------------------------------------
+  const KEY = "nurie-zukan", SAVE_VER = 1;
+  let save = (function () {
+    try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && s.v === SAVE_VER && s.book) return s; } catch (e) { /* ignore */ }
+    return { v: SAVE_VER, book: {} };
+  })();
+  function store() {
+    try { localStorage.setItem(KEY, JSON.stringify(save)); return true; } catch (e) { return false; }
+  }
+
+  // ---------------------------------------------------------------
+  // AUDIO: English voice + little sounds + the microphone
+  // ---------------------------------------------------------------
+  let voice = null, actx = null, noiseBuf = null;
+  function pickVoice() {
+    if (!("speechSynthesis" in window)) return;
+    const vs = speechSynthesis.getVoices(); if (!vs.length) return;
+    const prefer = ["Samantha", "Ava", "Allison", "Nicky", "Google US English", "Karen", "Daniel"];
+    for (const name of prefer) { const v = vs.find(v => v.name.indexOf(name) === 0 && /en/i.test(v.lang)); if (v) { voice = v; return; } }
+    voice = vs.find(v => v.lang === "en-US") || vs.find(v => /^en/i.test(v.lang)) || null;
+  }
+  if ("speechSynthesis" in window) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
+  const WHO = { narr: [1.08, .88], dino: [.55, .8], bug: [1.8, .95] };   // [pitch, rate]
+  function utter(text, who) {
+    const u = new SpeechSynthesisUtterance(text), w = WHO[who || "narr"];
+    u.lang = "en-US"; u.pitch = w[0]; u.rate = w[1];
+    if (voice) u.voice = voice;
+    return u;
+  }
+  let sayToken = 0;
+  function stopSay() { sayToken++; try { speechSynthesis.cancel(); } catch (e) { /* ignore */ } }
+  // say a list of lines in order. item: {t, who, on (called when it starts), gap}
+  function sayQ(items, done) {
+    stopSay();
+    const token = sayToken; let i = 0;
+    const next = () => {
+      if (token !== sayToken) return;
+      if (i >= items.length) { if (done) done(); return; }
+      const it = items[i++];
+      if (it.on) it.on();
+      if (!("speechSynthesis" in window)) { setTimeout(next, 900); return; }
+      let fired = false, tm = 0;
+      const fin = () => { if (fired) return; fired = true; clearTimeout(tm); setTimeout(next, it.gap == null ? 200 : it.gap); };
+      const u = utter(it.t, it.who); u.onend = fin; u.onerror = fin;
+      tm = setTimeout(fin, 1800 + it.t.length * 120);
+      try { speechSynthesis.speak(u); } catch (e) { fin(); }
+    };
+    next();
+  }
+  function unlockAudio() {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      if (actx.state === "suspended") actx.resume();
+    } catch (e) { /* ignore */ }
+    if ("speechSynthesis" in window && !unlockAudio.done) {
+      unlockAudio.done = true;
+      try { const u = utter(" "); u.volume = 0; speechSynthesis.speak(u); } catch (e) { /* ignore */ }
+    }
+  }
+  function tone(freq, dur, type, vol, freq2) {
+    if (!actx) return;
+    try {
+      const o = actx.createOscillator(), g = actx.createGain(), t = actx.currentTime;
+      o.type = type || "sine"; o.frequency.setValueAtTime(freq, t);
+      if (freq2) o.frequency.exponentialRampToValueAtTime(freq2, t + dur * .8);
+      g.gain.setValueAtTime(vol || .12, t); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+      o.connect(g); g.connect(actx.destination); o.start(t); o.stop(t + dur + .02);
+    } catch (e) { /* ignore */ }
+  }
+  const sfxPop = () => tone(320, .16, "sine", .22, 980);
+  const sfxPot = () => tone(660, .1, "triangle", .1, 880);
+  const sfxTwinkle = () => [784, 988, 1175, 1568].forEach((f, i) => setTimeout(() => tone(f, .25, "triangle", .08), i * 110));
+  function noise() {
+    if (!noiseBuf) {
+      noiseBuf = actx.createBuffer(1, actx.sampleRate, actx.sampleRate);
+      const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    }
+    const n = actx.createBufferSource(); n.buffer = noiseBuf; n.loop = true; return n;
+  }
+  function growl(dur, vol) {                      // a synthesized roar
+    if (!actx) return;
+    try {
+      const t = actx.currentTime, o = actx.createOscillator(), lfo = actx.createOscillator(), lg = actx.createGain();
+      o.type = "sawtooth"; o.frequency.setValueAtTime(95, t); o.frequency.linearRampToValueAtTime(58, t + dur);
+      lfo.frequency.value = 17; lg.gain.value = 22; lfo.connect(lg); lg.connect(o.frequency);
+      const n = noise(), nf = actx.createBiquadFilter(); nf.type = "lowpass"; nf.frequency.value = 520;
+      const lp = actx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 900;
+      const g = actx.createGain();
+      g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + .08);
+      g.gain.setValueAtTime(vol, t + dur * .7); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+      o.connect(lp); n.connect(nf); nf.connect(lp); lp.connect(g); g.connect(actx.destination);
+      o.start(t); lfo.start(t); n.start(t); o.stop(t + dur + .05); lfo.stop(t + dur + .05); n.stop(t + dur + .05);
+    } catch (e) { /* ignore */ }
+  }
+  function buzz(dur, vol) {                       // beetle wings
+    if (!actx) return;
+    try {
+      const t = actx.currentTime, o = actx.createOscillator(), am = actx.createOscillator(), ag = actx.createGain(), g = actx.createGain();
+      o.type = "sawtooth"; o.frequency.value = 150; am.frequency.value = 32; ag.gain.value = vol * .5;
+      const lp = actx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 1400;
+      g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + .1);
+      g.gain.setValueAtTime(vol, t + dur - .3); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+      am.connect(ag); ag.connect(g.gain); o.connect(lp); lp.connect(g); g.connect(actx.destination);
+      o.start(t); am.start(t); o.stop(t + dur + .05); am.stop(t + dur + .05);
+    } catch (e) { /* ignore */ }
+  }
+  // quiet crayon sound while a finger is drawing
+  let scrib = null;
+  function scribbleOn() {
+    if (!actx || scrib) return;
+    try {
+      const n = noise(), bp = actx.createBiquadFilter(), g = actx.createGain();
+      bp.type = "bandpass"; bp.frequency.value = 2600; bp.Q.value = .9; g.gain.value = .045;
+      n.connect(bp); bp.connect(g); g.connect(actx.destination); n.start();
+      scrib = { n: n, g: g };
+    } catch (e) { /* ignore */ }
+  }
+  function scribbleOff() {
+    if (!scrib) return;
+    const s = scrib; scrib = null;
+    try { s.g.gain.setTargetAtTime(0, actx.currentTime, .03); s.n.stop(actx.currentTime + .15); } catch (e) { /* ignore */ }
+  }
+
+  // The microphone: listen until the child says something, then give it back as an AudioBuffer.
+  // Nothing is judged and nothing is saved or sent anywhere.
+  let micStop = null, micDenied = false;
+  function micSupported() { return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && actx && actx.createScriptProcessor); }
+  async function micListen(onLevel, maxWait) {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+    if (actx.state === "suspended") { try { await actx.resume(); } catch (e) { /* ignore */ } }
+    return new Promise(resolve => {
+      const src = actx.createMediaStreamSource(stream), proc = actx.createScriptProcessor(2048, 1, 1), sink = actx.createGain();
+      sink.gain.value = 0; src.connect(proc); proc.connect(sink); sink.connect(actx.destination);
+      const sr = actx.sampleRate, pre = [], rec = [];
+      let preLen = 0, t = 0, floor = 1, speaking = false, spoke = 0, quiet = 0, done = false;
+      const finish = keep => {
+        if (done) return; done = true;
+        proc.onaudioprocess = null;
+        try { src.disconnect(); proc.disconnect(); sink.disconnect(); } catch (e) { /* ignore */ }
+        stream.getTracks().forEach(tr => tr.stop());
+        micStop = null; onLevel(0);
+        if (!keep || !rec.length) { resolve(null); return; }
+        const len = rec.reduce((a, b) => a + b.length, 0), buf = actx.createBuffer(1, len, sr), out = buf.getChannelData(0);
+        let o = 0, peak = 0;
+        for (const c of rec) { out.set(c, o); o += c.length; }
+        for (let k = 0; k < len; k++) { const v = Math.abs(out[k]); if (v > peak) peak = v; }
+        const g = peak > 0 ? Math.min(10, .95 / peak) : 1, fade = Math.min(len, Math.round(sr * .03));
+        for (let k = 0; k < len; k++) out[k] *= g;
+        for (let k = 0; k < fade; k++) { out[k] *= k / fade; out[len - 1 - k] *= k / fade; }
+        resolve(buf);
+      };
+      micStop = () => finish(false);
+      proc.onaudioprocess = e => {
+        const d = new Float32Array(e.inputBuffer.getChannelData(0)), dt = d.length / sr;
+        let s = 0; for (let k = 0; k < d.length; k++) s += d[k] * d[k];
+        const rms = Math.sqrt(s / d.length); t += dt;
+        if (t < .4) floor = Math.min(floor, rms);                  // the quietest moment = the room
+        const th = Math.min(.08, Math.max(.025, floor * 3));
+        onLevel(Math.min(1, rms / (th * 4)));
+        if (!speaking) {
+          pre.push(d); preLen += d.length;
+          while (preLen > sr * .3) preLen -= pre.shift().length;
+          if (t > .4 && rms > th) { speaking = true; rec.push.apply(rec, pre); }
+          else if (t > maxWait) finish(false);
+        } else {
+          rec.push(d); spoke += dt;
+          quiet = rms < th * .6 ? quiet + dt : 0;
+          if ((quiet > .6 && spoke > .35) || spoke > 3.5) finish(true);
+        }
+      };
+    });
+  }
+  // play the child's voice back as the creature: low and slow for dinosaurs, tiny and fast for beetles
+  function playEcho(buf, kind) {
+    const rate = kind === "dino" ? .68 : 1.6;
+    try {
+      const src = actx.createBufferSource(), f = actx.createBiquadFilter(), g = actx.createGain();
+      src.buffer = buf; src.playbackRate.value = rate;
+      f.type = kind === "dino" ? "lowpass" : "highpass"; f.frequency.value = kind === "dino" ? 2600 : 320;
+      g.gain.value = 1;
+      src.connect(f); f.connect(g); g.connect(actx.destination); src.start();
+    } catch (e) { /* ignore */ }
+    const dur = buf.duration / rate;
+    if (kind === "dino") growl(dur, .18); else buzz(dur, .05);
+    return dur;
+  }
+
+  // ---------------------------------------------------------------
+  // SCREENS
+  // ---------------------------------------------------------------
+  let timers = [];
+  const later = (fn, ms) => { timers.push(setTimeout(fn, ms)); };
+  function show(id) {
+    timers.forEach(clearTimeout); timers = [];
+    if (micStop) micStop();
+    scribbleOff(); hideHand();
+    document.querySelectorAll(".scr").forEach(s => s.classList.toggle("on", s.id === id));
+    document.body.classList.toggle("night", id === "scrNight");
+  }
+  const article = w => /^[aeiou]/i.test(w) ? "an " : "a ";
+  const introLine = (cr, word) => (cr.kind === "dino" ? "Roar! " : "Hello! ") + "I'm " + article(word) + word + " " + cr.name + "!";
+
+  let sessionDone = 0, sessionIds = [], lastId = null;
+
+  // ----- start -----
+  function showStart() {
+    show("scrStart");
+    $("startArt").innerHTML = creatureSVG(byId("trex"), { fills: { body: "#3cb44b", tail: "#3cb44b", neck: "#3cb44b", head: "#3cb44b", leg: "#2f9a40", arm: "#3cb44b", belly: "#ffd42a", spot: "#f7892b" } });
+  }
+  $("playBtn").onclick = () => {
+    unlockAudio(); tone(523, .12, "square", .06); setTimeout(() => tone(784, .18, "square", .06), 110);
+    sayQ([{ t: "Let's color!" }]);
+    setTimeout(showPick, 900);
+  };
+
+  // ----- pick: "Which do you like?" -----
+  let picking = false;
+  function showPick() {
+    show("scrPick"); picking = false;
+    const pool = CREATURES.filter(c => c.id !== lastId).map(c => ({ c: c, k: (save.book[c.id] ? 1 : 0) + Math.random() * .9 }));
+    pool.sort((a, b) => a.k - b.k);
+    const two = [pool[0].c, pool[1].c];
+    two.forEach((cr, i) => {
+      const el = $("pick" + i), b = save.book[cr.id];
+      el.innerHTML = creatureSVG(cr, b ? { img: b.img } : {});
+      el.onclick = () => choose(cr, el);
+      el.classList.remove("wiggle");
+    });
+    const wig = i => { const el = $("pick" + i); el.classList.remove("wiggle"); void el.offsetWidth; el.classList.add("wiggle"); };
+    later(() => sayQ([
+      { t: "Which do you like?" },
+      { t: "The " + two[0].name + "?", on: () => wig(0) },
+      { t: "Or the " + two[1].name + "?", on: () => wig(1) }
+    ]), 350);
+  }
+  function choose(cr, el) {
+    if (picking) return; picking = true;
+    unlockAudio(); sfxPot();
+    el.classList.remove("wiggle"); void el.offsetWidth; el.classList.add("wiggle");
+    sayQ([{ t: "The " + cr.name + "! Let's color!" }]);
+    later(() => startPaint(cr), 1500);
+  }
+  $("bookBtn").onclick = () => { unlockAudio(); showBook(null); };
+
+  // ----- paint -----
+  const POTS = [
+    ["red", "#e8322f"], ["orange", "#f7892b"], ["yellow", "#ffd42a"], ["green", "#3cb44b"],
+    ["blue", "#2f7de1"], ["purple", "#8e4ec6"], ["pink", "#ff7eb6"], ["brown", "#8b5a2b"],
+    ["black", "#333333"], ["white", "#ffffff"], ["rainbow", null]
+  ];
+  let cur = null, curPot = 0, P2 = [], cw = 0, ch = 0, sx = 1, sy = 1, actions = 0, lastSpeak = 0, idleT = 0, hints = 0;
+  const pc = $("paintCv"), tc = $("trailCv"), silCv = document.createElement("canvas"), scrCv = document.createElement("canvas");
+  let pctx = pc.getContext("2d"), tctx = tc.getContext("2d");
+
+  $("pots").innerHTML = POTS.map((p, i) => '<button class="pot ' + p[0] + '" data-i="' + i + '" style="--c:' + (p[1] || "#fff") + '" aria-label="' + p[0] + '"></button>').join("");
+  $("pots").addEventListener("click", e => {
+    const b = e.target.closest(".pot"); if (!b) return;
+    unlockAudio(); setPot(+b.dataset.i); sfxPot();
+    sayQ([{ t: POTS[curPot][0] + "!" }]); lastSpeak = performance.now();
+    activity();
+  });
+  function setPot(i) {
+    curPot = i;
+    document.querySelectorAll(".pot").forEach((b, k) => b.classList.toggle("sel", k === i));
+  }
+
+  function drawSolid(ctx, i, style) {
+    const q = cur.parts[i];
+    if (q.w) { ctx.strokeStyle = style; ctx.lineWidth = q.w; ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.stroke(P2[i]); }
+    else { ctx.fillStyle = style; ctx.fill(P2[i]); }
+  }
+  function startPaint(cr) {
+    cur = cr; lastId = cr.id; actions = 0; hints = 0;
+    show("scrPaint");
+    P2 = cr.parts.map(q => new Path2D(q.d));
+    const p = "p" + (++UID) + "_";
+    $("baseSvg").innerHTML = (cr.shadow ? '<path d="' + cr.shadow + '" fill="rgba(0,0,0,.08)"/>' : "") + cr.parts.map(q => solidEl(q, "#fff")).join("");
+    $("lineSvg").innerHTML = '<defs>' + artDefs(cr, p) + '</defs><g pointer-events="none">' + linesInner(cr, p) + '</g><g>' +
+      cr.parts.map((q, i) => q.w
+        ? '<path data-i="' + i + '" d="' + q.d + '" fill="none" stroke="#000" stroke-opacity="0" stroke-width="' + q.w + '" stroke-linecap="round" stroke-linejoin="round"/>'
+        : '<path data-i="' + i + '" d="' + q.d + '" fill="#000" fill-opacity="0"/>').join("") + '</g>';
+    $("doneBtn").className = "blk green";
+    if (curPot == null || POTS[curPot][0] === "white") curPot = Math.floor(Math.random() * 7);
+    setPot(curPot);
+    cw = 0; layoutPaint();
+    pctx.setTransform(1, 0, 0, 1, 0, 0); pctx.clearRect(0, 0, cw, ch);
+    tctx.setTransform(1, 0, 0, 1, 0, 0); tctx.clearRect(0, 0, cw, ch);
+    later(() => sayQ([{ t: "Pick a color!" }]), 200);
+    activity();
+  }
+  function layoutPaint() {
+    if (!cur) return;
+    const wrap = $("artWrap"), W = wrap.clientWidth - 12, H = wrap.clientHeight - 16;
+    let w = W, h = w * VH / VW;
+    if (h > H) { h = H; w = h * VW / VH; }
+    w = Math.max(100, Math.floor(w)); h = Math.max(80, Math.floor(w * VH / VW));
+    $("art").style.width = w + "px"; $("art").style.height = h + "px";
+    const dpr = Math.min(2, window.devicePixelRatio || 1), W2 = Math.round(w * dpr), H2 = Math.round(h * dpr);
+    if (W2 === cw && H2 === ch) return;
+    let old = null;
+    if (cw) { old = document.createElement("canvas"); old.width = cw; old.height = ch; old.getContext("2d").drawImage(pc, 0, 0); }
+    cw = W2; ch = H2; sx = cw / VW; sy = ch / VH;
+    [pc, tc, silCv, scrCv].forEach(c => { c.width = cw; c.height = ch; });
+    pctx = pc.getContext("2d"); tctx = tc.getContext("2d");
+    if (old) pctx.drawImage(old, 0, 0, cw, ch);
+    const s = silCv.getContext("2d"); s.setTransform(sx, 0, 0, sy, 0, 0);
+    cur.parts.forEach((q, i) => drawSolid(s, i, "#fff"));
+  }
+  window.addEventListener("resize", () => { if ($("scrPaint").classList.contains("on")) layoutPaint(); });
+
+  // drawing with fingers (several at once is fine)
+  const art = $("art"), strokes = new Map();
+  function toArt(e) { const r = art.getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width * VW, y: (e.clientY - r.top) / r.height * VH }; }
+  function colorAt(s, dist) {
+    const p = POTS[curPot];
+    return p[1] || "hsl(" + Math.round((s.hue + dist * .5) % 360) + ",88%,55%)";
+  }
+  function maskRect(ctx, x1, y1, x2, y2, op) {   // keep paint only inside (or outside) the creature, near the new bit
+    const r = BRUSH / 2 + 3;
+    let bx = Math.floor((Math.min(x1, x2) - r) * sx), by = Math.floor((Math.min(y1, y2) - r) * sy);
+    let bx2 = Math.ceil((Math.max(x1, x2) + r) * sx), by2 = Math.ceil((Math.max(y1, y2) + r) * sy);
+    bx = Math.max(0, bx); by = Math.max(0, by); bx2 = Math.min(cw, bx2); by2 = Math.min(ch, by2);
+    if (bx2 <= bx || by2 <= by) return;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.save(); ctx.beginPath(); ctx.rect(bx, by, bx2 - bx, by2 - by); ctx.clip();
+    ctx.globalCompositeOperation = op;
+    ctx.drawImage(silCv, bx, by, bx2 - bx, by2 - by, bx, by, bx2 - bx, by2 - by);
+    ctx.restore(); ctx.globalCompositeOperation = "source-over";
+  }
+  function segment(s, x1, y1, x2, y2) {
+    s.dist += Math.hypot(x2 - x1, y2 - y1);
+    const col = colorAt(s, s.dist);
+    [[pctx, "destination-in"], [tctx, "destination-out"]].forEach(([ctx, op]) => {
+      ctx.setTransform(sx, 0, 0, sy, 0, 0); ctx.globalCompositeOperation = "source-over";
+      ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = BRUSH; ctx.lineCap = "round"; ctx.lineJoin = "round";
+      ctx.beginPath();
+      if (x1 === x2 && y1 === y2) { ctx.arc(x1, y1, BRUSH / 2, 0, Math.PI * 2); ctx.fill(); }
+      else { ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); }
+      maskRect(ctx, x1, y1, x2, y2, op);
+    });
+  }
+  art.addEventListener("pointerdown", e => {
+    e.preventDefault(); unlockAudio(); activity();
+    try { art.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+    tc.classList.remove("fade"); clearTimeout(fadeT);
+    const pt = toArt(e);
+    strokes.set(e.pointerId, { x: pt.x, y: pt.y, x0: pt.x, y0: pt.y, cx: e.clientX, cy: e.clientY, t0: performance.now(), moved: false, dist: 0, hue: Math.random() * 360 });
+  });
+  art.addEventListener("pointermove", e => {
+    const s = strokes.get(e.pointerId); if (!s) return;
+    const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+    for (const ev of (evs.length ? evs : [e])) {
+      if (!s.moved) {
+        if (Math.hypot(ev.clientX - s.cx, ev.clientY - s.cy) < 9) continue;
+        s.moved = true; scribbleOn(); segment(s, s.x0, s.y0, s.x0, s.y0);
+      }
+      const pt = toArt(ev);
+      segment(s, s.x, s.y, pt.x, pt.y); s.x = pt.x; s.y = pt.y;
+    }
+    activity();
+  });
+  let fadeT = 0;
+  function endStroke(e) {
+    const s = strokes.get(e.pointerId); if (!s) return;
+    strokes.delete(e.pointerId);
+    if (!s.moved && e.type === "pointerup") {
+      if (performance.now() - s.t0 < 450) tapFill(e.clientX, e.clientY);
+      else { segment(s, s.x0, s.y0, s.x0, s.y0); countAction(); }
+    } else if (s.moved) countAction();
+    if (!strokes.size) {
+      scribbleOff();
+      fadeT = setTimeout(() => { tc.classList.add("fade"); fadeT = setTimeout(() => { tctx.setTransform(1, 0, 0, 1, 0, 0); tctx.clearRect(0, 0, cw, ch); tc.classList.remove("fade"); }, 520); }, 250);
+    }
+  }
+  art.addEventListener("pointerup", endStroke);
+  art.addEventListener("pointercancel", endStroke);
+
+  // a quick tap fills the whole part under the finger
+  function tapFill(x, y) {
+    const el = document.elementFromPoint(x, y);
+    const i = el && el.getAttribute && el.getAttribute("data-i") != null ? +el.getAttribute("data-i") : -1;
+    if (i < 0) { sparks(x, y, 4); return; }
+    const c = scrCv.getContext("2d");
+    c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = "source-over"; c.clearRect(0, 0, cw, ch);
+    c.setTransform(sx, 0, 0, sy, 0, 0);
+    let style = POTS[curPot][1];
+    if (!style) {
+      let bb = { x: 0, y: 0, width: VW, height: VH };
+      try { bb = el.getBBox(); } catch (err) { /* ignore */ }
+      style = c.createLinearGradient(bb.x, bb.y, bb.x + bb.width, bb.y + bb.height);
+      ["#e8322f", "#f7892b", "#ffd42a", "#3cb44b", "#2f7de1", "#8e4ec6"].forEach((col, k) => style.addColorStop(k / 5, col));
+    }
+    drawSolid(c, i, style);
+    c.globalCompositeOperation = "destination-out";
+    for (let j = i + 1; j < cur.parts.length; j++) drawSolid(c, j, "#000");
+    c.globalCompositeOperation = "source-over";
+    pctx.setTransform(1, 0, 0, 1, 0, 0); pctx.drawImage(scrCv, 0, 0);
+    sfxPop(); sparks(x, y, 8);
+    const now = performance.now();
+    if (now - lastSpeak > 900) { sayQ([{ t: POTS[curPot][0] + " " + cur.parts[i].n + "!" }]); lastSpeak = now; }
+    countAction();
+  }
+  function countAction() {
+    actions++;
+    const d = $("doneBtn");
+    if (actions >= 3 && !d.classList.contains("show")) d.classList.add("show");
+    if (actions === 25) { d.classList.add("pulse"); }
+  }
+  function sparks(x, y, n) {
+    const cols = ["#ffd42a", "#ff7eb6", "#3cb44b", "#2f7de1", "#f7892b", "#fff"];
+    for (let k = 0; k < n; k++) {
+      const s = document.createElement("div"), a = Math.PI * 2 * k / n + Math.random() * .5, r = 40 + Math.random() * 40;
+      s.className = "spark"; s.style.left = x + "px"; s.style.top = y + "px"; s.style.background = cols[k % cols.length];
+      s.style.setProperty("--dx", Math.cos(a) * r + "px"); s.style.setProperty("--dy", Math.sin(a) * r + "px");
+      document.body.appendChild(s); setTimeout(() => s.remove(), 650);
+    }
+  }
+
+  // gentle hints when nothing happens for a while
+  function activity() {
+    clearTimeout(idleT);
+    if (!$("scrPaint").classList.contains("on")) return;
+    hideHand();
+    idleT = setTimeout(idleHint, 10000);
+  }
+  function idleHint() {
+    if (!$("scrPaint").classList.contains("on") || hints >= 3) return;
+    hints++;
+    const pot = document.querySelector(".pot.sel") || document.querySelector(".pot"), r = art.getBoundingClientRect();
+    if (actions < 3) {
+      sayQ([{ t: "Pick a color! Then paint the " + cur.name + "!" }]);
+      moveHand(pot, [r.left + r.width * .5, r.top + r.height * .5]);
+    } else {
+      $("doneBtn").classList.add("pulse");
+      sayQ([{ t: "All done? Tap here!" }]);
+      moveHand($("doneBtn"));
+    }
+    idleT = setTimeout(idleHint, 14000);
+  }
+  function center(el) { const r = el.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; }
+  function moveHand(el, then) {
+    const h = $("hand"), [x, y] = center(el);
+    h.style.transition = "none"; h.style.left = (x - 20) + "px"; h.style.top = (y + 4) + "px"; h.style.opacity = 1;
+    void h.offsetWidth; h.style.transition = "";
+    if (then) later(() => { h.style.left = (then[0] - 20) + "px"; h.style.top = then[1] + "px"; }, 900);
+    later(hideHand, then ? 2600 : 2400);
+  }
+  function hideHand() { $("hand").style.opacity = 0; }
+
+  // "done": read which colors were used, keep the picture, bring the creature to life
+  function colorWord() {
+    const W = 200, H = 160, a = document.createElement("canvas"), b = document.createElement("canvas");
+    a.width = b.width = W; a.height = b.height = H;
+    const ac = a.getContext("2d"), bc = b.getContext("2d");
+    ac.drawImage(pc, 0, 0, W, H); bc.drawImage(silCv, 0, 0, W, H);
+    const pd = ac.getImageData(0, 0, W, H).data, sd = bc.getImageData(0, 0, W, H).data;
+    const pal = POTS.filter(p => p[1]).map(p => [p[0], parseInt(p[1].slice(1, 3), 16), parseInt(p[1].slice(3, 5), 16), parseInt(p[1].slice(5, 7), 16)]);
+    const cnt = {}; let sil = 0, painted = 0;
+    for (let k = 0; k < pd.length; k += 4) {
+      if (sd[k + 3] < 128) continue;
+      sil++;
+      if (pd[k + 3] < 128) continue;
+      painted++;
+      let best = null, bd = 1e9;
+      for (const p of pal) { const dd = (p[1] - pd[k]) ** 2 + (p[2] - pd[k + 1]) ** 2 + (p[3] - pd[k + 2]) ** 2; if (dd < bd) { bd = dd; best = p[0]; } }
+      cnt[best] = (cnt[best] || 0) + 1;
+    }
+    if (!sil || painted / sil < .06) return "white";
+    const top = Object.entries(cnt).sort((x, y) => y[1] - x[1]);
+    const share = top.map(t => t[1] / painted);
+    if (share[0] >= .6) return top[0][0];
+    if (share.filter(s => s >= .1).length >= 3) return "rainbow";
+    return top[0][0] + " and " + top[1][0];
+  }
+  function snapshot(w, h, q) {
+    const o = document.createElement("canvas"); o.width = w; o.height = h;
+    const c = o.getContext("2d"); c.fillStyle = "#fff"; c.fillRect(0, 0, w, h); c.drawImage(pc, 0, 0, w, h);
+    return o.toDataURL("image/jpeg", q);
+  }
+  $("doneBtn").onclick = () => {
+    if (!$("doneBtn").classList.contains("show")) return;
+    unlockAudio(); stopSay(); clearTimeout(idleT);
+    const word = colorWord();
+    const prev = save.book[cur.id];
+    save.book[cur.id] = { img: snapshot(600, 480, .82), color: word, n: (prev ? prev.n : 0) + 1, at: Date.now() };
+    if (!store()) { save.book[cur.id].img = snapshot(400, 320, .6); if (!store()) { /* storage full: keep for this visit only */ } }
+    sessionDone++; if (sessionIds.indexOf(cur.id) < 0) sessionIds.push(cur.id);
+    showAlive(cur, word);
+  };
+
+  // ----- alive: the creature talks, and copies what the child says -----
+  let aliveCr = null, round = 0, micBusy = false, tapMode = false;
+  function act(cls, ms) {
+    const el = $("aliveCr"); el.classList.add(cls);
+    later(() => el.classList.remove(cls), ms);
+  }
+  function showAlive(cr, word) {
+    show("scrAlive"); aliveCr = cr; round = 0; micBusy = false; tapMode = false;
+    const el = $("aliveCr"), b = save.book[cr.id];
+    el.innerHTML = creatureSVG(cr, { img: b.img });
+    el.className = cr.kind + " popin";
+    later(() => { el.classList.remove("popin"); el.classList.add("idle"); }, 750);
+    $("micBtn").hidden = true; $("nextBtn").hidden = true; $("nextBtn").classList.remove("pulse");
+    sfxTwinkle();
+    later(() => {
+      if (cr.kind === "dino") growl(.9, .2); else buzz(.9, .05);
+      sayQ([
+        { t: introLine(cr, word), who: cr.kind, on: () => act("talk", 2200) },
+        { t: cr.kind === "dino" ? "Can you roar like a " + cr.name + "?" : "Can you say hello?" }
+      ], askVoice);
+    }, 800);
+    later(() => { $("nextBtn").hidden = false; }, 4000);
+  }
+  function askVoice() {
+    if (!micSupported() || micDenied) { tapMode = true; sayQ([{ t: "Tap the " + aliveCr.name + "!" }]); return; }
+    const m = $("micBtn"); m.hidden = false; m.classList.remove("listen"); m.classList.add("pulse");
+  }
+  $("micBtn").onclick = () => {
+    if (micBusy) return;
+    unlockAudio(); stopSay(); micBusy = true;
+    const m = $("micBtn"); m.classList.remove("pulse"); m.classList.add("listen");
+    micListen(lv => { $("micRing").style.setProperty("--lv", 1 + lv * .7); }, 8).then(buf => {
+      micBusy = false; m.classList.remove("listen");
+      if (!buf) { m.classList.add("pulse"); sayQ([{ t: "Tap and talk!" }]); return; }
+      m.hidden = true;
+      const dur = playEcho(buf, aliveCr.kind);
+      act(aliveCr.kind === "bug" && round === 0 ? "fly" : "talk", Math.max(dur * 1000, aliveCr.kind === "bug" && round === 0 ? 2400 : 0));
+      later(afterVoice, Math.max(dur * 1000, aliveCr.kind === "bug" && round === 0 ? 2400 : 0) + 500);
+    }).catch(() => {
+      micBusy = false; micDenied = true; m.hidden = true; m.classList.remove("listen");
+      tapMode = true; sayQ([{ t: "Tap the " + aliveCr.name + "!" }]);
+    });
+  };
+  function afterVoice() {
+    round++;
+    if (round === 1) {
+      sayQ([
+        { t: aliveCr.kind === "dino" ? "Wow! Big roar!" : "Hello! Hello!", who: aliveCr.kind === "dino" ? "narr" : "bug" },
+        { t: "What color do you like?", who: aliveCr.kind }
+      ], askVoice);
+    } else {
+      sayQ([{ t: "Cool! Thank you!", who: aliveCr.kind, on: () => act("talk", 1200) }], () => {
+        $("nextBtn").hidden = false; $("nextBtn").classList.add("pulse");
+      });
+    }
+  }
+  $("aliveCr").onclick = () => {
+    unlockAudio();
+    if (micBusy) return;
+    if (aliveCr.kind === "dino") { growl(1, .25); act("talk", 1000); }
+    else { buzz(2.2, .06); act("fly", 2400); }
+    if (tapMode) { tapMode = false; later(() => afterVoice(), 1300); }
+  };
+  $("nextBtn").onclick = () => { unlockAudio(); stopSay(); showBook(aliveCr.id); };
+
+  // ----- book -----
+  function showBook(newId) {
+    show("scrBook"); bookGo = false;
+    const g = $("bookGrid");
+    g.style.setProperty("--cols", CREATURES.length <= 4 ? 2 : 3);
+    g.innerHTML = CREATURES.map(cr => {
+      const b = save.book[cr.id];
+      return '<button class="bcard' + (b ? "" : " empty") + (cr.id === newId ? " new" : "") + '" data-id="' + cr.id + '">' + creatureSVG(cr, b ? { img: b.img } : {}) + '</button>';
+    }).join("");
+    if (newId) { sfxTwinkle(); later(() => sayQ([{ t: "Your " + byId(newId).name + " is in the book!" }]), 500); }
+    else later(() => sayQ([{ t: "Your book!" }]), 200);
+  }
+  let bookGo = false;
+  $("bookGrid").addEventListener("click", e => {
+    const c = e.target.closest(".bcard"); if (!c || bookGo) return;
+    unlockAudio();
+    const cr = byId(c.dataset.id), b = save.book[cr.id];
+    c.classList.remove("wiggle", "new"); void c.offsetWidth; c.classList.add("wiggle");
+    if (b) {
+      if (cr.kind === "dino") growl(.7, .15); else buzz(.7, .04);
+      sayQ([{ t: introLine(cr, b.color), who: cr.kind }]);
+    } else {
+      bookGo = true;
+      sayQ([{ t: "Let's color the " + cr.name + "!" }]);
+      later(() => startPaint(cr), 1500);
+    }
+  });
+  $("bookNext").onclick = () => { unlockAudio(); stopSay(); if (sessionDone >= SESSION_MAX) showNight(); else showPick(); };
+
+  // ----- night: a clear place to stop -----
+  function showNight() {
+    show("scrNight");
+    let st = "";
+    for (let k = 0; k < 18; k++) st += '<div class="star" style="left:' + (4 + Math.random() * 92) + '%;top:' + (4 + Math.random() * 45) + '%;animation-delay:' + (-Math.random() * 2) + 's"></div>';
+    $("stars").innerHTML = st;
+    const ids = sessionIds.slice(-4);
+    $("sleepRow").innerHTML = ids.map((id, k) => '<div class="sleeper" style="animation-delay:' + (-k * .7) + 's">' +
+      creatureSVG(byId(id), { img: save.book[id].img, noShadow: true }) + '<div class="zzz" style="animation-delay:' + (-k * .9) + 's">z</div></div>').join("");
+    $("sunBtn").hidden = true;
+    later(() => sayQ([{ t: "It's night time." }].concat(ids.map(id => ({ t: "Good night, " + byId(id).name + "." }))).concat([{ t: "See you tomorrow!" }])), 600);
+    later(() => { $("sunBtn").hidden = false; }, 15000);
+  }
+  $("sunBtn").onclick = () => { unlockAudio(); sessionDone = 0; sessionIds = []; sayQ([{ t: "Good morning!" }]); showPick(); };
+
+  // ---------------------------------------------------------------
+  // iOS: no zoom / callouts while little hands are everywhere
+  // ---------------------------------------------------------------
+  document.addEventListener("gesturestart", e => e.preventDefault());
+  document.addEventListener("contextmenu", e => e.preventDefault());
+  document.addEventListener("dblclick", e => e.preventDefault());
+  document.addEventListener("visibilitychange", () => { if (document.hidden) { stopSay(); if (micStop) micStop(); scribbleOff(); } });
+
+  // debug handle for automated checks
+  window.__nz = { save: () => save, colorWord: colorWord, CREATURES: CREATURES, showAlive: showAlive, showNight: showNight, showBook: showBook, sessionIds: () => sessionIds, creatureSVG: creatureSVG, byId: byId };
+
+  // developer views: #lab (all art), #paint=trex (jump straight in)
+  const hash = location.hash.slice(1);
+  if (hash === "lab") {
+    document.body.classList.add("lab");
+    const demo = { red: "#e8322f", orange: "#f7892b", yellow: "#ffd42a", green: "#3cb44b", blue: "#2f7de1", purple: "#8e4ec6", pink: "#ff7eb6", brown: "#8b5a2b" };
+    const cols = Object.values(demo);
+    $("lab").innerHTML = CREATURES.map(cr => {
+      const fills = {}; cr.parts.forEach((q, i) => { fills[q.id] = cols[(i * 3) % cols.length]; });
+      return '<div>' + creatureSVG(cr) + '</div><div>' + creatureSVG(cr, { fills: fills }) + '</div>';
+    }).join("");
+    return;
+  }
+  if (hash === "icon") {                         // makes icon-180.png (see make-icon.sh)
+    let svg = creatureSVG(byId("trex"), { noShadow: true, fills: { body: "#3cb44b", tail: "#3cb44b", neck: "#3cb44b", head: "#3cb44b", leg: "#2f9a40", arm: "#3cb44b", belly: "#ffd42a", spot1: "#f7892b", spot2: "#e8322f", spot3: "#2f7de1" } });
+    svg = svg.replace('viewBox="0 0 1000 800"', 'viewBox="30 40 940 940" width="720" height="720"');
+    const img = new Image();
+    img.onload = () => {
+      const S = 720, cv = document.createElement("canvas"); cv.width = cv.height = S;
+      const c = cv.getContext("2d"), g = c.createLinearGradient(0, 0, 0, S), gy = 600;
+      g.addColorStop(0, "#8fd3f4"); g.addColorStop(1, "#bfe9fb"); c.fillStyle = g; c.fillRect(0, 0, S, S);
+      c.fillStyle = "#63c74d"; c.fillRect(0, gy, S, 40); c.fillStyle = "#3e8e41"; c.fillRect(0, gy + 40, S, 12);
+      c.fillStyle = "#8b5a2b"; c.fillRect(0, gy + 52, S, S);
+      c.fillStyle = "rgba(0,0,0,.08)"; for (let x = 0; x < S; x += 64) c.fillRect(x + 56, gy, 8, S);
+      c.drawImage(img, 20, 70, S, S);
+      const out = document.createElement("canvas"); out.width = out.height = 180;
+      const o = out.getContext("2d"); o.imageSmoothingQuality = "high"; o.drawImage(cv, 0, 0, 180, 180);
+      document.body.innerHTML = '<pre id="icon">' + out.toDataURL("image/png") + '</pre>';
+    };
+    img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+    return;
+  }
+  if (hash.indexOf("paint=") === 0 && byId(hash.slice(6))) { startPaint(byId(hash.slice(6))); return; }
+  if (hash === "book") { showBook(null); return; }
+  showStart();
+})();
+</script>
+</body>
+</html>
