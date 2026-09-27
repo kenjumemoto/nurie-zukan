@@ -147,7 +147,7 @@
   #aliveCr { width: min(88vw, (100vh - 90px - clamp(100px, 18vh, 150px)) * 1.25); aspect-ratio: 5 / 4; transform-origin: 50% 92%; cursor: pointer; }
   #aliveCr.popin { animation: bigpop .7s cubic-bezier(.3,1.6,.5,1); }
   @keyframes bigpop { from { transform: scale(.2) translateY(30%); opacity: 0; } to { transform: none; opacity: 1; } }
-  #aliveCr.dino.idle { animation: stomp 1.6s ease-in-out infinite; }
+  #aliveCr.roar.idle { animation: stomp 1.6s ease-in-out infinite; }
   @keyframes stomp { 0%,100% { transform: rotate(0); } 25% { transform: rotate(-2deg) translateY(-8px); } 50% { transform: rotate(0); } 75% { transform: rotate(2deg) translateY(-8px); } }
   #aliveCr.bug.idle { animation: hover 1.8s ease-in-out infinite; }
   @keyframes hover { 50% { transform: translateY(-14px) rotate(-3deg); } }
@@ -172,16 +172,15 @@
 
   /* ---------- book ---------- */
   #scrBook { flex-direction: column; align-items: center; justify-content: center; }
-  #bookGrid { display: grid; grid-template-columns: repeat(var(--cols, 2), 1fr); gap: 2.4vh 2.4vw; width: min(90vw, (100vh - 150px) * 1.3); max-height: 100%; overflow-y: auto; padding: 8px 8px 16px; box-sizing: border-box; }
+  #bookGrid { display: grid; gap: 14px; max-height: 100%; overflow-y: auto; padding: 6px 6px 14px; box-sizing: border-box; -webkit-overflow-scrolling: touch; }
   .bcard {
-    appearance: none; margin: 0; padding: 4%; cursor: pointer; aspect-ratio: 5 / 4; box-sizing: border-box;
+    appearance: none; margin: 0; padding: 3%; cursor: pointer; aspect-ratio: 5 / 4; box-sizing: border-box;
     background: var(--paper); border: 4px solid var(--dirt-dark); box-shadow: 0 7px 0 var(--dirt-dark); position: relative;
   }
   .bcard.empty .cr { opacity: .35; }
   .bcard.new { animation: newcard 1s cubic-bezier(.3,1.6,.5,1); outline: 6px solid var(--gold); outline-offset: 4px; }
   @keyframes newcard { from { transform: scale(.3) rotate(-10deg); } to { transform: none; } }
   #bookNext { position: absolute; right: calc(16px + env(safe-area-inset-right)); bottom: calc(66px + env(safe-area-inset-bottom)); width: 104px; height: 88px; }
-  @media (max-aspect-ratio: 1/1) { #bookGrid { --cols: 2 !important; } }
 
   /* ---------- night ---------- */
   #scrNight { flex-direction: column; align-items: center; justify-content: flex-end; }
@@ -302,19 +301,44 @@
   }
   const mirrorY = d => xf(d, (x, y) => [x, VH - y], true);
   const shift = (d, dx, dy) => xf(d, (x, y) => [x + dx, y + dy], false);
+  const mirrorX = d => xf(d, (x, y) => [VW - x, y], true);
 
   // ---------------------------------------------------------------
   // THE CREATURES
+  //   kind: "roar" (dinosaurs, big cats: roar, stomp, low voice) or "bug" (hello, fly, tiny voice)
   //   parts: back -> front. Each is a colorable region. w = a "limb" drawn as a thick line.
   //   n = the English word said when a part is tapped ("Red tail!")
   //   details: lines/eyes drawn on top of a part (hidden where a front part covers it)
   // ---------------------------------------------------------------
   const EYE = (x, y, r) => [{ d: E(x, y, r, r * 1.1), f: INK, s: 0 }, { d: E(x + r * .32, y - r * .4, r * .34, r * .36), f: "#fff", s: 0 }];
   const SHINE = d => ({ d: d, c: "#fff", s: 11, o: .75 });
+  const on = (id, list) => list.map(e => Object.assign({ on: id }, e));
+  // a leg: a column with a rounded foot, and two toe lines
+  function col(x, top, bot, w) {
+    const r = Math.min(20, w / 3);
+    return "M " + x + " " + top + " L " + x + " " + (bot - r) + " Q " + x + " " + bot + " " + (x + r) + " " + bot +
+      " L " + (x + w - r) + " " + bot + " Q " + (x + w) + " " + bot + " " + (x + w) + " " + (bot - r) + " L " + (x + w) + " " + top + " Z";
+  }
+  const toes = (x, bot, w) => [1, 2].map(k => ({ d: "M " + r1(x + w * k / 3) + " " + bot + " L " + r1(x + w * k / 3) + " " + (bot - 18), s: 6 }));
+  // the top edge of an upright ellipse at x (to hang stripes and plates from a back)
+  const eTop = (cx, cy, rx, ry, x) => r1(cy - ry * Math.sqrt(Math.max(0, 1 - ((x - cx) / rx) ** 2)));
+  function wedge(x, y0, len, w, bend) {            // a tapering stripe hanging down from y0
+    return "M " + r1(x - w / 2) + " " + y0 + " L " + r1(x + w / 2) + " " + y0 + " Q " + r1(x + w / 2 + bend * .5) + " " + r1(y0 + len * .55) +
+      " " + r1(x + bend) + " " + r1(y0 + len) + " Q " + r1(x - w / 2 + bend * .4) + " " + r1(y0 + len * .5) + " " + r1(x - w / 2) + " " + y0 + " Z";
+  }
+  function plate(x, b, w, h) {                     // a stegosaurus plate standing on y=b
+    return "M " + r1(x - w / 2) + " " + b + " L " + r1(x - w * .42) + " " + r1(b - h * .55) + " L " + x + " " + (b - h) +
+      " L " + r1(x + w * .42) + " " + r1(b - h * .55) + " L " + r1(x + w / 2) + " " + b + " Z";
+  }
+  const catFace = (x, y) => [                      // nose + mouth + whisker dots, centered on the muzzle top
+    { d: "M " + (x - 16) + " " + y + " L " + (x + 16) + " " + y + " Q " + (x + 16) + " " + (y + 12) + " " + x + " " + (y + 18) + " Q " + (x - 16) + " " + (y + 12) + " " + (x - 16) + " " + y + " Z", f: INK, s: 0 },
+    { d: "M " + x + " " + (y + 18) + " L " + x + " " + (y + 28) + " Q " + (x - 11) + " " + (y + 40) + " " + (x - 24) + " " + (y + 32), s: 6 },
+    { d: "M " + x + " " + (y + 28) + " Q " + (x + 11) + " " + (y + 40) + " " + (x + 24) + " " + (y + 32), s: 6 }
+  ].concat([[-28, 16], [-34, 26], [28, 16], [34, 26]].map(o => ({ d: E(x + o[0], y + o[1], 3.5, 3.5), f: INK, s: 0 })));
 
   const CREATURES = [
     {
-      id: "trex", name: "T-rex", kind: "dino",
+      id: "trex", name: "T-rex", kind: "roar",
       shadow: E(460, 748, 250, 20),
       parts: (function () {
         const leg = "M 285 520 C 270 420 480 410 470 520 C 465 590 420 620 415 660 L 412 700 L 470 700 Q 506 702 506 722 Q 506 742 476 742 L 350 742 Q 330 742 332 722 Q 334 704 352 700 L 350 660 C 335 620 292 590 285 520 Z";
@@ -347,7 +371,7 @@
       ].concat(EYE(772, 196, 27).map(e => Object.assign({ on: "head" }, e)))
     },
     {
-      id: "trike", name: "Triceratops", kind: "dino",
+      id: "trike", name: "Triceratops", kind: "roar",
       shadow: E(470, 750, 290, 20),
       parts: [
         { id: "tail", n: "tail", d: "M 230 410 C 160 420 95 455 40 505 C 110 520 180 525 250 515 Z" },
@@ -378,6 +402,101 @@
         { on: "legNF", d: "M 535 744 Q 547 724 559 744", f: "#fff", s: 5 },
         { on: "legNF", d: "M 564 744 Q 576 724 588 744", f: "#fff", s: 5 }
       ].concat(EYE(770, 372, 20).map(e => Object.assign({ on: "head" }, e)))
+    },
+    {
+      id: "stego", name: "Stegosaurus", kind: "roar",
+      shadow: E(460, 750, 280, 20),
+      parts: (function () {
+        const top = x => eTop(440, 470, 225, 125, x);
+        return [[288, 90, 104], [360, 104, 142], [437, 112, 164], [514, 102, 140], [584, 86, 100]]
+          .map((p, i) => ({ id: "plate" + i, n: "plate", d: plate(p[0], r1(top(p[0]) + 38), p[1], p[2]) }))
+          .concat([
+            { id: "spike1", n: "spike", d: "M 92 470 L 50 404 L 126 460 Z" },
+            { id: "spike2", n: "spike", d: "M 148 462 L 122 394 L 182 454 Z" },
+            { id: "tail", n: "tail", d: "M 250 440 C 180 440 110 455 42 482 C 110 502 190 512 262 505 Z" },
+            { id: "legFB", n: "leg", d: col(330, 500, 716, 72) },
+            { id: "legFF", n: "leg", d: col(560, 500, 716, 66) },
+            { id: "neck", n: "neck", d: "M 610 440 C 650 455 690 480 715 505 L 700 560 C 670 545 640 535 600 530 Z" },
+            { id: "body", n: "body", d: E(440, 470, 225, 125) },
+            { id: "spot1", n: "spot", d: E(380, 440, 24, 18) },
+            { id: "spot2", n: "spot", d: E(468, 420, 20, 15) },
+            { id: "legNB", n: "leg", d: col(255, 510, 744, 88) },
+            { id: "legNF", n: "leg", d: col(500, 510, 744, 76) },
+            { id: "head", n: "head", d: E(765, 528, 64, 40, 12) }
+          ]);
+      })(),
+      details: on("head", [{ d: "M 828 546 Q 802 558 776 552", s: 6 }].concat(EYE(780, 514, 10)))
+        .concat(on("legNB", toes(255, 744, 88))).concat(on("legNF", toes(500, 744, 76)))
+    },
+    {
+      id: "brachio", name: "Brachiosaurus", kind: "roar",
+      shadow: E(440, 750, 260, 20),
+      parts: [
+        { id: "tail", n: "tail", d: "M 260 440 C 180 450 100 480 38 530 C 110 535 200 525 280 510 Z" },
+        { id: "legFB", n: "leg", d: col(330, 500, 718, 72) },
+        { id: "legFF", n: "leg", d: col(548, 480, 718, 72) },
+        { id: "neck", n: "neck", d: "M 530 400 C 600 330 650 230 690 150 L 772 172 C 732 262 692 382 652 472 Z" },
+        { id: "spot1", n: "spot", d: E(700, 252, 17, 12, -65) },
+        { id: "spot2", n: "spot", d: E(668, 332, 19, 14, -65) },
+        { id: "body", n: "body", d: E(430, 470, 210, 130, -6) },
+        { id: "spot3", n: "spot", d: E(360, 420, 27, 20, -6) },
+        { id: "spot4", n: "spot", d: E(452, 398, 22, 17, -6) },
+        { id: "legNB", n: "leg", d: col(255, 510, 744, 86) },
+        { id: "legNF", n: "leg", d: col(478, 492, 744, 86) },
+        { id: "head", n: "head", d: E(752, 150, 64, 40, -8) }
+      ],
+      details: on("head", [{ d: "M 814 160 Q 796 172 772 168", s: 6 }, { d: E(800, 136, 5, 4), f: INK, s: 0 }].concat(EYE(768, 136, 11)))
+        .concat(on("legNB", toes(255, 744, 86))).concat(on("legNF", toes(478, 744, 86)))
+    },
+    {
+      id: "lion", name: "lion", kind: "roar",
+      shadow: E(450, 750, 270, 20),
+      parts: [
+        { id: "tail", n: "tail", w: 24, d: "M 215 440 C 150 440 122 400 120 348" },
+        { id: "tuft", n: "tail", d: E(118, 322, 28, 36, 10) },
+        { id: "legFB", n: "leg", d: col(320, 470, 718, 70) },
+        { id: "legFF", n: "leg", d: col(560, 470, 718, 70) },
+        { id: "body", n: "body", d: E(420, 455, 225, 118) },
+        { id: "legNB", n: "leg", d: col(240, 480, 742, 84) },
+        { id: "legNF", n: "leg", d: col(478, 480, 742, 84) },
+        { id: "mane", n: "mane", d: scallop(690, 330, 152, 14, 0) },
+        { id: "earL", n: "ear", d: E(622, 256, 30, 28) },
+        { id: "earR", n: "ear", d: E(762, 256, 30, 28) },
+        { id: "head", n: "head", d: E(692, 338, 100, 90) },
+        { id: "mouth", n: "mouth", d: E(692, 386, 44, 30) }
+      ],
+      details: on("earL", [{ d: E(622, 260, 14, 13), s: 5 }]).concat(on("earR", [{ d: E(762, 260, 14, 13), s: 5 }]))
+        .concat(on("head", EYE(655, 322, 13).concat(EYE(729, 322, 13)))).concat(on("mouth", catFace(692, 366)))
+        .concat(on("legNB", toes(240, 742, 84))).concat(on("legNF", toes(478, 742, 84)))
+    },
+    {
+      id: "tiger", name: "tiger", kind: "roar",
+      shadow: E(460, 750, 275, 20),
+      parts: (function () {
+        const top = x => eTop(430, 450, 235, 120, x);
+        return [
+          { id: "tail", n: "tail", w: 30, d: "M 210 430 C 140 420 108 380 106 312" },
+          { id: "legFB", n: "leg", d: col(330, 470, 718, 70) },
+          { id: "legFF", n: "leg", d: col(575, 470, 718, 70) },
+          { id: "body", n: "body", d: E(430, 450, 235, 120) }
+        ].concat([[280, 72], [340, 92], [402, 100], [464, 98], [524, 84]]
+          .map((p, i) => ({ id: "stripe" + i, n: "stripe", d: wedge(p[0], r1(top(p[0]) + 7), p[1], 34, 10) })))
+          .concat([
+            { id: "legNB", n: "leg", d: col(250, 480, 742, 84) },
+            { id: "legNF", n: "leg", d: col(495, 480, 742, 84) },
+            { id: "earL", n: "ear", d: E(645, 256, 32, 30) },
+            { id: "earR", n: "ear", d: E(785, 256, 32, 30) },
+            { id: "head", n: "head", d: E(715, 335, 102, 90) },
+            { id: "mouth", n: "mouth", d: E(715, 383, 44, 29) }
+          ]);
+      })(),
+      details: on("earL", [{ d: E(645, 260, 15, 14), s: 5 }]).concat(on("earR", [{ d: E(785, 260, 15, 14), s: 5 }]))
+        .concat(on("head", ["M 715 256 L 715 284", "M 694 262 L 698 282", "M 736 262 L 732 282",
+          "M 616 322 L 642 330", "M 618 350 L 644 350", "M 814 322 L 788 330", "M 812 350 L 786 350"].map(d => ({ d: d, s: 8 }))
+          .concat(EYE(680, 320, 13)).concat(EYE(750, 320, 13))))
+        .concat(on("mouth", catFace(715, 364)))
+        .concat(on("tail", [{ d: "M 150 408 L 170 392", s: 7 }, { d: "M 122 372 L 144 362", s: 7 }]))
+        .concat(on("legNB", toes(250, 742, 84))).concat(on("legNF", toes(495, 742, 84)))
     },
     {
       id: "kabuto", name: "rhinoceros beetle", kind: "bug",
@@ -423,6 +542,113 @@
         Object.assign({ on: "wingB" }, SHINE("M 240 468 Q 320 510 410 500")),
         Object.assign({ on: "chest" }, SHINE("M 530 306 Q 570 296 610 304"))
       ]
+    },
+    {
+      id: "semi", name: "cicada", kind: "bug",
+      parts: (function () {
+        const legs = ["M 660 345 L 700 290 L 752 276", "M 622 330 L 624 262 L 664 226", "M 584 340 L 544 276 L 502 250"];
+        const wing = "M 640 396 C 560 280 330 240 150 316 C 112 334 116 382 158 390 C 330 406 520 406 640 402 Z";
+        return legs.concat(legs.map(mirrorY)).map((d, i) => ({ id: "leg" + i, n: "leg", w: 20, d: d })).concat([
+          { id: "wingT", n: "wing", d: wing },
+          { id: "wingB", n: "wing", d: mirrorY(wing) },
+          { id: "chest", n: "body", d: E(620, 400, 88, 112) },
+          { id: "head", n: "head", d: E(730, 400, 40, 100) },
+          { id: "eyeT", n: "eye", d: E(734, 300, 30, 30) },
+          { id: "eyeB", n: "eye", d: E(734, 500, 30, 30) }
+        ]);
+      })(),
+      details: (function () {
+        const veins = ["M 600 384 C 500 344 330 314 200 332", "M 530 396 C 440 380 320 372 220 372", "M 300 312 L 322 382", "M 430 322 L 446 392"];
+        return on("wingT", veins.map(d => ({ d: d, s: 4 }))).concat(on("wingB", veins.map(d => ({ d: mirrorY(d), s: 4 }))))
+          .concat(on("eyeT", [{ d: E(743, 291, 9, 9), f: "#fff", s: 0 }])).concat(on("eyeB", [{ d: E(743, 491, 9, 9), f: "#fff", s: 0 }]))
+          .concat(on("chest", [SHINE("M 580 326 Q 620 306 662 326")]));
+      })()
+    },
+    {
+      id: "mantis", name: "praying mantis", kind: "bug",
+      shadow: E(500, 690, 230, 14),
+      parts: [
+        { id: "legF1", n: "leg", w: 20, d: "M 565 445 L 645 520 L 690 660" },
+        { id: "legF2", n: "leg", w: 20, d: "M 480 450 L 462 540 L 440 660" },
+        { id: "belly", n: "body", d: E(330, 445, 215, 60, -4) },
+        { id: "wing", n: "wing", d: "M 560 420 C 460 385 300 372 150 418 C 136 428 140 452 160 454 C 320 462 470 455 560 448 Z" },
+        { id: "legN1", n: "leg", w: 22, d: "M 540 455 L 600 545 L 622 672" },
+        { id: "legN2", n: "leg", w: 22, d: "M 452 460 L 402 548 L 362 672" },
+        { id: "neck", n: "body", w: 40, d: "M 540 440 L 700 300" },
+        { id: "arm1", n: "arm", w: 36, d: "M 668 330 L 784 404" },
+        { id: "arm2", n: "arm", w: 28, d: "M 784 404 L 808 316" },
+        { id: "head", n: "head", d: "M 675 232 Q 745 198 815 232 Q 828 246 816 262 L 764 334 Q 745 352 726 334 L 674 262 Q 662 246 675 232 Z" },
+        { id: "eyeL", n: "eye", d: E(684, 232, 27, 30) },
+        { id: "eyeR", n: "eye", d: E(806, 232, 27, 30) }
+      ],
+      details: on("head", [{ d: "M 728 212 Q 698 140 636 96", s: 5 }, { d: "M 762 212 Q 792 140 856 106", s: 5 }, { d: "M 734 316 Q 745 325 756 316", s: 5 }])
+        .concat(on("eyeL", [{ d: E(690, 236, 8, 10), f: INK, s: 0 }])).concat(on("eyeR", [{ d: E(800, 236, 8, 10), f: INK, s: 0 }]))
+        .concat(on("arm1", ["M 699 371 L 692 381", "M 728 390 L 721 400", "M 757 408 L 750 418"].map(d => ({ d: d, s: 6 }))))
+        .concat(on("wing", [{ d: "M 540 432 C 440 412 300 410 180 432", s: 4 }]))
+    },
+    {
+      id: "tentou", name: "ladybug", kind: "bug",
+      parts: (function () {
+        const legs = ["M 640 310 L 700 236 L 760 226", "M 500 250 L 500 170 L 546 128", "M 360 280 L 300 204 L 244 186"];
+        const spots = [[380, 305, 36], [560, 300, 30], [300, 372, 22], [470, 365, 20]];
+        return legs.concat(legs.map(mirrorY)).map((d, i) => ({ id: "leg" + i, n: "leg", w: 22, d: d })).concat([
+          { id: "head", n: "head", d: E(740, 400, 50, 62) },
+          { id: "wingT", n: "wing", d: "M 700 400 A 230 230 0 0 0 240 400 Z" },
+          { id: "wingB", n: "wing", d: "M 700 400 A 230 230 0 0 1 240 400 Z" }
+        ]).concat(spots.map((q, i) => ({ id: "spotT" + i, n: "spot", d: E(q[0], q[1], q[2], q[2]) })))
+          .concat(spots.map((q, i) => ({ id: "spotB" + i, n: "spot", d: E(q[0], VH - q[1], q[2], q[2]) })))
+          .concat([
+            { id: "chest", n: "body", d: E(686, 400, 50, 118) },
+            { id: "dotT", n: "spot", d: E(690, 350, 16, 20) },
+            { id: "dotB", n: "spot", d: E(690, 450, 16, 20) }
+          ]);
+      })(),
+      details: on("head", [{ d: "M 776 372 Q 806 346 826 340", s: 5 }, { d: "M 776 428 Q 806 454 826 460", s: 5 }])
+        .concat(on("wingT", [SHINE("M 320 282 Q 390 232 470 228")])).concat(on("wingB", [SHINE("M 320 518 Q 390 568 470 572")]))
+    },
+    {
+      id: "chou", name: "butterfly", kind: "bug",
+      parts: (function () {
+        const up = "M 492 300 C 430 160 250 70 160 110 C 88 145 108 300 200 360 C 290 412 420 402 492 362 Z";
+        const lo = "M 490 392 C 420 400 300 430 250 520 C 210 600 262 690 340 682 C 420 672 480 580 492 470 Z";
+        const sp = [["spotU1", E(300, 220, 52, 40, -25)], ["spotU2", E(398, 322, 26, 22)], ["spotL1", E(356, 570, 40, 33)]];
+        return [
+          { id: "wingLL", n: "wing", d: lo }, { id: "wingLR", n: "wing", d: mirrorX(lo) },
+          { id: "wingUL", n: "wing", d: up }, { id: "wingUR", n: "wing", d: mirrorX(up) }
+        ].concat(sp.map(q => ({ id: q[0] + "L", n: "spot", d: q[1] })))
+          .concat(sp.map(q => ({ id: q[0] + "R", n: "spot", d: mirrorX(q[1]) })))
+          .concat([
+            { id: "body", n: "body", d: E(500, 440, 30, 190) },
+            { id: "head", n: "head", d: E(500, 222, 42, 40) }
+          ]);
+      })(),
+      details: on("head", [{ d: "M 486 188 C 470 130 440 100 410 92", s: 5 }, { d: mirrorX("M 486 188 C 470 130 440 100 410 92"), s: 5 },
+        { d: E(406, 90, 11, 11), f: INK, s: 0 }, { d: E(594, 90, 11, 11), f: INK, s: 0 }, { d: "M 488 238 Q 500 247 512 238", s: 5 }]
+        .concat(EYE(484, 216, 8)).concat(EYE(516, 216, 8)))
+        .concat(on("body", ["M 474 360 Q 500 368 526 360", "M 472 430 Q 500 438 528 430", "M 474 500 Q 500 508 526 500", "M 480 570 Q 500 576 520 570"].map(d => ({ d: d, s: 5 }))))
+    },
+    {
+      id: "tonbo", name: "dragonfly", kind: "bug",
+      parts: (function () {
+        const wf = "M 612 388 C 596 300 610 170 660 100 C 692 68 722 96 708 134 C 686 240 664 330 640 392 Z";
+        const wh = "M 572 388 C 560 300 528 170 492 104 C 468 72 436 98 446 132 C 470 240 516 330 548 392 Z";
+        return [
+          { id: "wing1", n: "wing", d: wh }, { id: "wing2", n: "wing", d: mirrorY(wh) },
+          { id: "wing3", n: "wing", d: wf }, { id: "wing4", n: "wing", d: mirrorY(wf) },
+          { id: "tail", n: "tail", w: 34, d: "M 560 400 L 110 400" },
+          { id: "chest", n: "body", d: E(594, 400, 54, 44) },
+          { id: "head", n: "head", d: E(664, 400, 30, 46) },
+          { id: "eyeT", n: "eye", d: E(682, 362, 32, 32) },
+          { id: "eyeB", n: "eye", d: E(682, 438, 32, 32) }
+        ];
+      })(),
+      details: (function () {
+        const vf = "M 624 380 C 630 290 648 190 676 124", vh = "M 563 380 C 552 290 526 200 478 128";
+        return on("wing1", [{ d: vh, s: 4 }]).concat(on("wing2", [{ d: mirrorY(vh), s: 4 }]))
+          .concat(on("wing3", [{ d: vf, s: 4 }])).concat(on("wing4", [{ d: mirrorY(vf), s: 4 }]))
+          .concat(on("tail", [480, 420, 360, 300, 240, 180].map(x => ({ d: "M " + x + " 386 L " + x + " 414", s: 5 }))))
+          .concat(on("eyeT", [{ d: E(691, 352, 9, 9), f: "#fff", s: 0 }])).concat(on("eyeB", [{ d: E(691, 428, 9, 9), f: "#fff", s: 0 }]));
+      })()
     }
   ];
   CREATURES.forEach(cr => {
@@ -504,7 +730,7 @@
     voice = vs.find(v => v.lang === "en-US") || vs.find(v => /^en/i.test(v.lang)) || null;
   }
   if ("speechSynthesis" in window) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
-  const WHO = { narr: [1.08, .88], dino: [.55, .8], bug: [1.8, .95] };   // [pitch, rate]
+  const WHO = { narr: [1.08, .88], roar: [.55, .8], bug: [1.8, .95] };   // [pitch, rate]
   function utter(text, who) {
     const u = new SpeechSynthesisUtterance(text), w = WHO[who || "narr"];
     u.lang = "en-US"; u.pitch = w[0]; u.rate = w[1];
@@ -654,18 +880,18 @@
       };
     });
   }
-  // play the child's voice back as the creature: low and slow for dinosaurs, tiny and fast for beetles
+  // play the child's voice back as the creature: low and slow for roarers (dinosaurs, lions), tiny and fast for bugs
   function playEcho(buf, kind) {
-    const rate = kind === "dino" ? .68 : 1.6;
+    const rate = kind === "roar" ? .68 : 1.6;
     try {
       const src = actx.createBufferSource(), f = actx.createBiquadFilter(), g = actx.createGain();
       src.buffer = buf; src.playbackRate.value = rate;
-      f.type = kind === "dino" ? "lowpass" : "highpass"; f.frequency.value = kind === "dino" ? 2600 : 320;
+      f.type = kind === "roar" ? "lowpass" : "highpass"; f.frequency.value = kind === "roar" ? 2600 : 320;
       g.gain.value = 1;
       src.connect(f); f.connect(g); g.connect(actx.destination); src.start();
     } catch (e) { /* ignore */ }
     const dur = buf.duration / rate;
-    if (kind === "dino") growl(dur, .18); else buzz(dur, .05);
+    if (kind === "roar") growl(dur, .18); else buzz(dur, .05);
     return dur;
   }
 
@@ -682,7 +908,7 @@
     document.body.classList.toggle("night", id === "scrNight");
   }
   const article = w => /^[aeiou]/i.test(w) ? "an " : "a ";
-  const introLine = (cr, word) => (cr.kind === "dino" ? "Roar! " : "Hello! ") + "I'm " + article(word) + word + " " + cr.name + "!";
+  const introLine = (cr, word) => (cr.kind === "roar" ? "Roar! " : "Hello! ") + "I'm " + article(word) + word + " " + cr.name + "!";
 
   let sessionDone = 0, sessionIds = [], lastId = null;
 
@@ -987,10 +1213,10 @@
     $("micBtn").hidden = true; $("nextBtn").hidden = true; $("nextBtn").classList.remove("pulse");
     sfxTwinkle();
     later(() => {
-      if (cr.kind === "dino") growl(.9, .2); else buzz(.9, .05);
+      if (cr.kind === "roar") growl(.9, .2); else buzz(.9, .05);
       sayQ([
         { t: introLine(cr, word), who: cr.kind, on: () => act("talk", 2200) },
-        { t: cr.kind === "dino" ? "Can you roar like a " + cr.name + "?" : "Can you say hello?" }
+        { t: cr.kind === "roar" ? "Can you roar like a " + cr.name + "?" : "Can you say hello?" }
       ], askVoice);
     }, 800);
     later(() => { $("nextBtn").hidden = false; }, 4000);
@@ -1019,7 +1245,7 @@
     round++;
     if (round === 1) {
       sayQ([
-        { t: aliveCr.kind === "dino" ? "Wow! Big roar!" : "Hello! Hello!", who: aliveCr.kind === "dino" ? "narr" : "bug" },
+        { t: aliveCr.kind === "roar" ? "Wow! Big roar!" : "Hello! Hello!", who: aliveCr.kind === "roar" ? "narr" : "bug" },
         { t: "What color do you like?", who: aliveCr.kind }
       ], askVoice);
     } else {
@@ -1031,7 +1257,7 @@
   $("aliveCr").onclick = () => {
     unlockAudio();
     if (micBusy) return;
-    if (aliveCr.kind === "dino") { growl(1, .25); act("talk", 1000); }
+    if (aliveCr.kind === "roar") { growl(1, .25); act("talk", 1000); }
     else { buzz(2.2, .06); act("fly", 2400); }
     if (tapMode) { tapMode = false; later(() => afterVoice(), 1300); }
   };
@@ -1041,14 +1267,29 @@
   function showBook(newId) {
     show("scrBook"); bookGo = false;
     const g = $("bookGrid");
-    g.style.setProperty("--cols", CREATURES.length <= 4 ? 2 : 3);
     g.innerHTML = CREATURES.map(cr => {
       const b = save.book[cr.id];
       return '<button class="bcard' + (b ? "" : " empty") + (cr.id === newId ? " new" : "") + '" data-id="' + cr.id + '">' + creatureSVG(cr, b ? { img: b.img } : {}) + '</button>';
     }).join("");
+    layoutBook();
+    const nc = newId && g.querySelector('[data-id="' + newId + '"]');
+    if (nc && nc.scrollIntoView) nc.scrollIntoView({ block: "nearest" });
     if (newId) { sfxTwinkle(); later(() => sayQ([{ t: "Your " + byId(newId).name + " is in the book!" }]), 500); }
     else later(() => sayQ([{ t: "Your book!" }]), 200);
   }
+  // as many columns as make the cards biggest while everything fits; scroll only on small phones
+  function layoutBook() {
+    const g = $("bookGrid"), n = CREATURES.length, gap = 14, pad = 12, wide = innerWidth > innerHeight;
+    const W = innerWidth - (wide ? 260 : 28) - pad, H = innerHeight - 76 - (wide ? 0 : 110) - pad;
+    let best = 1, bw = 0;
+    for (let c = 1; c <= n; c++) {
+      const r = Math.ceil(n / c), w = Math.min((W - (c - 1) * gap) / c, (H - (r - 1) * gap) / r * VW / VH);
+      if (w > bw) { bw = w; best = c; }
+    }
+    if (bw < 130) { best = Math.max(2, Math.floor((W + gap) / (130 + gap))); bw = (W - (best - 1) * gap) / best; }
+    g.style.gridTemplateColumns = "repeat(" + best + ", " + Math.floor(bw) + "px)";
+  }
+  window.addEventListener("resize", () => { if ($("scrBook").classList.contains("on")) layoutBook(); });
   let bookGo = false;
   $("bookGrid").addEventListener("click", e => {
     const c = e.target.closest(".bcard"); if (!c || bookGo) return;
@@ -1056,7 +1297,7 @@
     const cr = byId(c.dataset.id), b = save.book[cr.id];
     c.classList.remove("wiggle", "new"); void c.offsetWidth; c.classList.add("wiggle");
     if (b) {
-      if (cr.kind === "dino") growl(.7, .15); else buzz(.7, .04);
+      if (cr.kind === "roar") growl(.7, .15); else buzz(.7, .04);
       sayQ([{ t: introLine(cr, b.color), who: cr.kind }]);
     } else {
       bookGo = true;
@@ -1090,15 +1331,16 @@
   document.addEventListener("visibilitychange", () => { if (document.hidden) { stopSay(); if (micStop) micStop(); scribbleOff(); } });
 
   // debug handle for automated checks
-  window.__nz = { save: () => save, colorWord: colorWord, CREATURES: CREATURES, showAlive: showAlive, showNight: showNight, showBook: showBook, sessionIds: () => sessionIds, creatureSVG: creatureSVG, byId: byId };
+  window.__nz = { save: () => save, colorWord: colorWord, CREATURES: CREATURES, showAlive: showAlive, showNight: showNight, showBook: showBook, sessionIds: () => sessionIds, creatureSVG: creatureSVG, byId: byId, startPaint: startPaint };
 
   // developer views: #lab (all art), #paint=trex (jump straight in)
   const hash = location.hash.slice(1);
-  if (hash === "lab") {
+  if (hash.indexOf("lab") === 0) {
     document.body.classList.add("lab");
     const demo = { red: "#e8322f", orange: "#f7892b", yellow: "#ffd42a", green: "#3cb44b", blue: "#2f7de1", purple: "#8e4ec6", pink: "#ff7eb6", brown: "#8b5a2b" };
     const cols = Object.values(demo);
-    $("lab").innerHTML = CREATURES.map(cr => {
+    const only = hash.split("=")[1];
+    $("lab").innerHTML = CREATURES.filter(cr => !only || only.split(",").indexOf(cr.id) >= 0).map(cr => {
       const fills = {}; cr.parts.forEach((q, i) => { fills[q.id] = cols[(i * 3) % cols.length]; });
       return '<div>' + creatureSVG(cr) + '</div><div>' + creatureSVG(cr, { fills: fills }) + '</div>';
     }).join("");
