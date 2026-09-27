@@ -836,7 +836,8 @@
   let micStop = null, micDenied = false;
   function micSupported() { return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && actx && actx.createScriptProcessor); }
   async function micListen(onLevel, maxWait) {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+    // no echo cancellation: on iPad it switches on "voice processing", which makes everything quieter afterwards
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
     if (actx.state === "suspended") { try { await actx.resume(); } catch (e) { /* ignore */ } }
     return new Promise(resolve => {
       const src = actx.createMediaStreamSource(stream), proc = actx.createScriptProcessor(2048, 1, 1), sink = actx.createGain();
@@ -880,19 +881,59 @@
       };
     });
   }
-  // play the child's voice back as the creature: low and slow for roarers (dinosaurs, lions), tiny and fast for bugs
+  // make the voice shorter/longer (x f) without changing its pitch (WSOLA), so playing it at rate f gives the old length at a new pitch
+  function stretch(x, sr, f) {
+    const W = Math.round(sr * .04) & ~1, Hs = W / 2, Ha = Hs / f, D = Math.round(sr * .012);
+    if (x.length < W * 2) return x;
+    const win = new Float32Array(W);
+    for (let i = 0; i < W; i++) win[i] = .5 - .5 * Math.cos(2 * Math.PI * i / W);
+    const outLen = Math.floor(x.length * f), y = new Float32Array(outLen + W), nrm = new Float32Array(outLen + W);
+    let nat = 0;                                   // where the last grain would naturally continue
+    for (let k = 0; k * Hs < outLen; k++) {
+      const nom = Math.round(k * Ha);
+      let best = Math.min(Math.max(0, nom), x.length - W);
+      if (k > 0) {                                 // pick the nearby grain that lines up best with the last one
+        let bc = -Infinity;
+        const lo = Math.max(0, nom - D), hi = Math.min(x.length - W, nom + D);
+        for (let c = lo; c <= hi; c += 2) {
+          let sum = 0;
+          for (let i = 0; i < W; i += 8) sum += x[c + i] * x[nat + i];
+          if (sum > bc) { bc = sum; best = c; }
+        }
+      }
+      const o = k * Hs;
+      for (let i = 0; i < W; i++) { y[o + i] += x[best + i] * win[i]; nrm[o + i] += win[i]; }
+      nat = Math.min(best + Hs, x.length - W);
+    }
+    for (let i = 0; i < outLen; i++) if (nrm[i] > .1) y[i] /= nrm[i];
+    return y.subarray(0, outLen);
+  }
+  function louder(y, sr) {                         // gentle compressor, then back up to full volume
+    const att = Math.exp(-1 / (sr * .005)), rel = Math.exp(-1 / (sr * .12)), th = .12;
+    let env = 0, peak = 0;
+    for (let i = 0; i < y.length; i++) {
+      const a = Math.abs(y[i]);
+      env = a > env ? att * env + (1 - att) * a : rel * env + (1 - rel) * a;
+      if (env > th) y[i] *= Math.pow(env / th, 1 / 3 - 1);
+      if (Math.abs(y[i]) > peak) peak = Math.abs(y[i]);
+    }
+    if (peak > 0) { const g = .95 / peak; for (let i = 0; i < y.length; i++) y[i] *= g; }
+    return y;
+  }
+  // play the child's voice back as the creature: lower for roarers (dinosaurs, lions), higher for bugs.
+  // The words keep their normal speed, so they are easy to catch.
+  const ECHO_PITCH = { roar: .6, bug: 1.35 };
   function playEcho(buf, kind) {
-    const rate = kind === "roar" ? .68 : 1.6;
+    const pitch = ECHO_PITCH[kind] || 1, sr = buf.sampleRate;
     try {
-      const src = actx.createBufferSource(), f = actx.createBiquadFilter(), g = actx.createGain();
-      src.buffer = buf; src.playbackRate.value = rate;
-      f.type = kind === "roar" ? "lowpass" : "highpass"; f.frequency.value = kind === "roar" ? 2600 : 320;
-      g.gain.value = 1;
-      src.connect(f); f.connect(g); g.connect(actx.destination); src.start();
-    } catch (e) { /* ignore */ }
-    const dur = buf.duration / rate;
-    if (kind === "roar") growl(dur, .18); else buzz(dur, .05);
-    return dur;
+      const y = stretch(louder(new Float32Array(buf.getChannelData(0)), sr), sr, pitch);   // playing at rate `pitch` undoes the length change
+      const b2 = actx.createBuffer(1, y.length, sr); b2.getChannelData(0).set(y);
+      const src = actx.createBufferSource(), f = actx.createBiquadFilter();
+      src.buffer = b2; src.playbackRate.value = pitch;
+      f.type = kind === "roar" ? "lowpass" : "highpass"; f.frequency.value = kind === "roar" ? 4500 : 220;
+      src.connect(f); f.connect(actx.destination); src.start();
+      return b2.duration / pitch;
+    } catch (e) { return buf.duration; }
   }
 
   // ---------------------------------------------------------------
@@ -959,6 +1000,9 @@
     ["black", "#333333"], ["white", "#ffffff"], ["rainbow", null]
   ];
   let cur = null, curPot = 0, P2 = [], cw = 0, ch = 0, sx = 1, sy = 1, actions = 0, lastSpeak = 0, idleT = 0, hints = 0;
+  // which part owns each 10x10 cell of the picture, and how much of each part has been painted
+  const GC = 10, GW = VW / GC, GH = VH / GC, FILL_AT = .5;   // share of a part to paint before it fills in
+  let owner = null, painted = null, pCells = [], pHit = [], pDone = [], pBox = [];
   const pc = $("paintCv"), tc = $("trailCv"), silCv = document.createElement("canvas"), scrCv = document.createElement("canvas");
   let pctx = pc.getContext("2d"), tctx = tc.getContext("2d");
 
@@ -970,6 +1014,10 @@
     activity();
   });
   function setPot(i) {
+    if (i !== curPot && painted) {                 // a part that is already filled can be repainted with the new color
+      for (let k = 0; k < painted.length; k++) if (owner[k] >= 0 && pDone[owner[k]]) painted[k] = 0;
+      pDone.forEach((d, j) => { if (d) pHit[j] = 0; });
+    }
     curPot = i;
     document.querySelectorAll(".pot").forEach((b, k) => b.classList.toggle("sel", k === i));
   }
@@ -986,13 +1034,12 @@
     const p = "p" + (++UID) + "_";
     $("baseSvg").innerHTML = (cr.shadow ? '<path d="' + cr.shadow + '" fill="rgba(0,0,0,.08)"/>' : "") + cr.parts.map(q => solidEl(q, "#fff")).join("");
     $("lineSvg").innerHTML = '<defs>' + artDefs(cr, p) + '</defs><g pointer-events="none">' + linesInner(cr, p) + '</g><g>' +
-      cr.parts.map((q, i) => q.w
-        ? '<path data-i="' + i + '" d="' + q.d + '" fill="none" stroke="#000" stroke-opacity="0" stroke-width="' + q.w + '" stroke-linecap="round" stroke-linejoin="round"/>'
-        : '<path data-i="' + i + '" d="' + q.d + '" fill="#000" fill-opacity="0"/>').join("") + '</g>';
+      cr.parts.map((q, i) => '<path data-i="' + i + '" d="' + q.d + '" fill="none" stroke="none"/>').join("") + '</g>';
     $("doneBtn").className = "blk green";
     if (curPot == null || POTS[curPot][0] === "white") curPot = Math.floor(Math.random() * 7);
     setPot(curPot);
     cw = 0; layoutPaint();
+    buildGrid(cr);
     pctx.setTransform(1, 0, 0, 1, 0, 0); pctx.clearRect(0, 0, cw, ch);
     tctx.setTransform(1, 0, 0, 1, 0, 0); tctx.clearRect(0, 0, cw, ch);
     later(() => sayQ([{ t: "Pick a color!" }]), 200);
@@ -1017,6 +1064,69 @@
     cur.parts.forEach((q, i) => drawSolid(s, i, "#fff"));
   }
   window.addEventListener("resize", () => { if ($("scrPaint").classList.contains("on")) layoutPaint(); });
+  function buildGrid(cr) {
+    const c = document.createElement("canvas").getContext("2d"), n = cr.parts.length;
+    owner = new Int8Array(GW * GH).fill(-1); painted = new Uint8Array(GW * GH);
+    pCells = new Array(n).fill(0); pHit = new Array(n).fill(0); pDone = new Array(n).fill(false);
+    pBox = cr.parts.map(() => [VW, VH, 0, 0]);
+    const bb = Array.from($("lineSvg").querySelectorAll("path[data-i]")).map((el, i) => {
+      const pad = (cr.parts[i].w || 0) / 2 + 2;
+      try { const b = el.getBBox(); return [b.x - pad, b.y - pad, b.x + b.width + pad, b.y + b.height + pad]; } catch (e) { return [0, 0, VW, VH]; }
+    });
+    for (let gy = 0; gy < GH; gy++) for (let gx = 0; gx < GW; gx++) {
+      const x = gx * GC + GC / 2, y = gy * GC + GC / 2;
+      for (let i = n - 1; i >= 0; i--) {         // the front-most part wins
+        const b = bb[i] || [0, 0, VW, VH];
+        if (x < b[0] || x > b[2] || y < b[1] || y > b[3]) continue;
+        const q = cr.parts[i];
+        let hit;
+        if (q.w) { c.lineWidth = q.w; c.lineCap = "round"; c.lineJoin = "round"; hit = c.isPointInStroke(P2[i], x, y); }
+        else hit = c.isPointInPath(P2[i], x, y);
+        if (!hit) continue;
+        owner[gy * GW + gx] = i; pCells[i]++;
+        const pb = pBox[i]; pb[0] = Math.min(pb[0], x); pb[1] = Math.min(pb[1], y); pb[2] = Math.max(pb[2], x); pb[3] = Math.max(pb[3], y);
+        break;
+      }
+    }
+  }
+  // mark the cells under a bit of brush; a part that is painted enough fills itself in
+  function markPaint(x1, y1, x2, y2) {
+    const R = BRUSH / 2 * .9, dx = x2 - x1, dy = y2 - y1, L2 = dx * dx + dy * dy, touched = [];
+    const gx0 = Math.max(0, Math.floor((Math.min(x1, x2) - R) / GC)), gx1 = Math.min(GW - 1, Math.floor((Math.max(x1, x2) + R) / GC));
+    const gy0 = Math.max(0, Math.floor((Math.min(y1, y2) - R) / GC)), gy1 = Math.min(GH - 1, Math.floor((Math.max(y1, y2) + R) / GC));
+    for (let gy = gy0; gy <= gy1; gy++) for (let gx = gx0; gx <= gx1; gx++) {
+      const k = gy * GW + gx, o = owner[k];
+      if (o < 0 || painted[k]) continue;
+      const px = gx * GC + GC / 2, py = gy * GC + GC / 2;
+      const t = L2 ? Math.max(0, Math.min(1, ((px - x1) * dx + (py - y1) * dy) / L2)) : 0;
+      if (Math.hypot(px - x1 - t * dx, py - y1 - t * dy) > R) continue;
+      painted[k] = 1; pHit[o]++;
+      if (touched.indexOf(o) < 0) touched.push(o);
+    }
+    touched.forEach(i => { if (pCells[i] && pHit[i] / pCells[i] >= FILL_AT) autoFill(i); });
+  }
+  function autoFill(i) {
+    const c = scrCv.getContext("2d"), b = pBox[i], first = !pDone[i];
+    c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = "source-over"; c.clearRect(0, 0, cw, ch);
+    c.setTransform(sx, 0, 0, sy, 0, 0);
+    let style = POTS[curPot][1];
+    if (!style) {
+      style = c.createLinearGradient(b[0], b[1], b[2], b[3]);
+      ["#e8322f", "#f7892b", "#ffd42a", "#3cb44b", "#2f7de1", "#8e4ec6"].forEach((col, k) => style.addColorStop(k / 5, col));
+    }
+    drawSolid(c, i, style);
+    c.globalCompositeOperation = "destination-out";
+    for (let j = i + 1; j < cur.parts.length; j++) drawSolid(c, j, "#000");
+    c.globalCompositeOperation = "source-over";
+    // the first time, fill only the gaps (the scribbles stay on top); after a color change, paint over
+    pctx.setTransform(1, 0, 0, 1, 0, 0); pctx.globalCompositeOperation = first ? "destination-over" : "source-over";
+    pctx.drawImage(scrCv, 0, 0); pctx.globalCompositeOperation = "source-over";
+    pDone[i] = true; pHit[i] = -1e6;                 // stays filled until the color changes
+    const r = art.getBoundingClientRect();
+    sfxPop(); sparks(r.left + (b[0] + b[2]) / 2 / VW * r.width, r.top + (b[1] + b[3]) / 2 / VH * r.height, 8);
+    const now = performance.now();
+    if (now - lastSpeak > 900) { sayQ([{ t: POTS[curPot][0] + " " + cur.parts[i].n + "!" }]); lastSpeak = now; }
+  }
 
   // drawing with fingers (several at once is fine)
   const art = $("art"), strokes = new Map();
@@ -1048,6 +1158,7 @@
       else { ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); }
       maskRect(ctx, x1, y1, x2, y2, op);
     });
+    markPaint(x1, y1, x2, y2);
   }
   art.addEventListener("pointerdown", e => {
     e.preventDefault(); unlockAudio(); activity();
@@ -1073,10 +1184,8 @@
   function endStroke(e) {
     const s = strokes.get(e.pointerId); if (!s) return;
     strokes.delete(e.pointerId);
-    if (!s.moved && e.type === "pointerup") {
-      if (performance.now() - s.t0 < 450) tapFill(e.clientX, e.clientY);
-      else { segment(s, s.x0, s.y0, s.x0, s.y0); countAction(); }
-    } else if (s.moved) countAction();
+    if (!s.moved && e.type === "pointerup") { segment(s, s.x0, s.y0, s.x0, s.y0); countAction(); }   // a tap is a dot
+    else if (s.moved) countAction();
     if (!strokes.size) {
       scribbleOff();
       fadeT = setTimeout(() => { tc.classList.add("fade"); fadeT = setTimeout(() => { tctx.setTransform(1, 0, 0, 1, 0, 0); tctx.clearRect(0, 0, cw, ch); tc.classList.remove("fade"); }, 520); }, 250);
@@ -1085,31 +1194,6 @@
   art.addEventListener("pointerup", endStroke);
   art.addEventListener("pointercancel", endStroke);
 
-  // a quick tap fills the whole part under the finger
-  function tapFill(x, y) {
-    const el = document.elementFromPoint(x, y);
-    const i = el && el.getAttribute && el.getAttribute("data-i") != null ? +el.getAttribute("data-i") : -1;
-    if (i < 0) { sparks(x, y, 4); return; }
-    const c = scrCv.getContext("2d");
-    c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = "source-over"; c.clearRect(0, 0, cw, ch);
-    c.setTransform(sx, 0, 0, sy, 0, 0);
-    let style = POTS[curPot][1];
-    if (!style) {
-      let bb = { x: 0, y: 0, width: VW, height: VH };
-      try { bb = el.getBBox(); } catch (err) { /* ignore */ }
-      style = c.createLinearGradient(bb.x, bb.y, bb.x + bb.width, bb.y + bb.height);
-      ["#e8322f", "#f7892b", "#ffd42a", "#3cb44b", "#2f7de1", "#8e4ec6"].forEach((col, k) => style.addColorStop(k / 5, col));
-    }
-    drawSolid(c, i, style);
-    c.globalCompositeOperation = "destination-out";
-    for (let j = i + 1; j < cur.parts.length; j++) drawSolid(c, j, "#000");
-    c.globalCompositeOperation = "source-over";
-    pctx.setTransform(1, 0, 0, 1, 0, 0); pctx.drawImage(scrCv, 0, 0);
-    sfxPop(); sparks(x, y, 8);
-    const now = performance.now();
-    if (now - lastSpeak > 900) { sayQ([{ t: POTS[curPot][0] + " " + cur.parts[i].n + "!" }]); lastSpeak = now; }
-    countAction();
-  }
   function countAction() {
     actions++;
     const d = $("doneBtn");
@@ -1233,9 +1317,11 @@
       micBusy = false; m.classList.remove("listen");
       if (!buf) { m.classList.add("pulse"); sayQ([{ t: "Tap and talk!" }]); return; }
       m.hidden = true;
-      const dur = playEcho(buf, aliveCr.kind);
-      act(aliveCr.kind === "bug" && round === 0 ? "fly" : "talk", Math.max(dur * 1000, aliveCr.kind === "bug" && round === 0 ? 2400 : 0));
-      later(afterVoice, Math.max(dur * 1000, aliveCr.kind === "bug" && round === 0 ? 2400 : 0) + 500);
+      later(() => {                                // a short pause lets the iPad switch from "recording" back to "playing"
+        const dur = playEcho(buf, aliveCr.kind), fly = aliveCr.kind === "bug" && round === 0, ms = Math.max(dur * 1000, fly ? 2400 : 0);
+        act(fly ? "fly" : "talk", ms);
+        later(afterVoice, ms + 500);
+      }, 250);
     }).catch(() => {
       micBusy = false; micDenied = true; m.hidden = true; m.classList.remove("listen");
       tapMode = true; sayQ([{ t: "Tap the " + aliveCr.name + "!" }]);
@@ -1331,7 +1417,7 @@
   document.addEventListener("visibilitychange", () => { if (document.hidden) { stopSay(); if (micStop) micStop(); scribbleOff(); } });
 
   // debug handle for automated checks
-  window.__nz = { save: () => save, colorWord: colorWord, CREATURES: CREATURES, showAlive: showAlive, showNight: showNight, showBook: showBook, sessionIds: () => sessionIds, creatureSVG: creatureSVG, byId: byId, startPaint: startPaint };
+  window.__nz = { save: () => save, colorWord: colorWord, CREATURES: CREATURES, showAlive: showAlive, showNight: showNight, showBook: showBook, sessionIds: () => sessionIds, creatureSVG: creatureSVG, byId: byId, startPaint: startPaint, playEcho: playEcho, unlock: unlockAudio, actx: () => actx };
 
   // developer views: #lab (all art), #paint=trex (jump straight in)
   const hash = location.hash.slice(1);
