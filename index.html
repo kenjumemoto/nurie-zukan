@@ -86,22 +86,8 @@
   @keyframes bob { 50% { transform: translateY(-10px) rotate(-2deg); } }
   #playBtn { width: clamp(96px, 17vh, 150px); height: clamp(96px, 17vh, 150px); border-radius: 0; }
 
-  /* ---------- pick ---------- */
-  #scrPick { align-items: center; justify-content: center; gap: 4vw; }
-  .pcard {
-    appearance: none; margin: 0; padding: 2%; cursor: pointer;
-    width: min(42vw, 66vh * 1.25); aspect-ratio: 5 / 4; box-sizing: border-box;
-    background: var(--paper); border: 5px solid var(--dirt-dark); box-shadow: 0 9px 0 var(--dirt-dark);
-    transition: transform .08s;
-  }
-  .pcard:active { transform: translateY(7px); box-shadow: 0 2px 0 var(--dirt-dark); }
   .wiggle { animation: wiggle .7s ease-in-out; }
   @keyframes wiggle { 20% { transform: rotate(-5deg) scale(1.04); } 50% { transform: rotate(5deg) scale(1.06); } 80% { transform: rotate(-2deg); } }
-  #bookBtn { position: absolute; top: calc(12px + env(safe-area-inset-top)); right: calc(16px + env(safe-area-inset-right)); width: 76px; height: 76px; }
-  @media (max-aspect-ratio: 1/1) {
-    #scrPick { flex-direction: column; }
-    .pcard { width: min(84vw, 34vh * 1.25); }
-  }
 
   /* ---------- paint ---------- */
   #scrPaint { gap: 18px; }
@@ -124,21 +110,23 @@
   .pot.white { box-shadow: inset -6px -8px 0 rgba(0,0,0,.10), 0 0 0 2px #d9d2c3 inset, 0 5px 0 rgba(0,0,0,.28); }
   .pot.rainbow { background: conic-gradient(#e8322f, #f7892b, #ffd42a, #3cb44b, #2f7de1, #8e4ec6, #ff7eb6, #e8322f); }
   .pot.sel { transform: scale(1.2); box-shadow: 0 0 0 5px #fff, 0 0 0 9px var(--ink), 0 6px 0 9px rgba(0,0,0,.2); z-index: 1; }
+  #homeBtn { flex: none; width: calc(var(--pot) * 1.5); height: calc(var(--pot) * 1.2); }
   #doneBtn { flex: none; width: calc(var(--pot) * 2.2); height: calc(var(--pot) * 1.5); visibility: hidden; }
   #doneBtn.show { visibility: visible; animation: popin .4s ease-out; }
   #doneBtn.show.pulse { animation: pulse 1.1s ease-in-out infinite; }
   @media (max-aspect-ratio: 1/1) {
     #scrPaint { flex-direction: column; }
-    #side { flex-direction: row; gap: 14px; }
+    #side { flex-direction: row; flex-wrap: wrap; gap: 14px; }
     #pots { grid-template-columns: repeat(6, var(--pot)); }
     :root { --pot: min(11.5vw, 7vh, 64px); }
-    #doneBtn { width: calc(var(--pot) * 1.5); height: calc(var(--pot) * 2.2); }
+    #doneBtn { width: calc(var(--pot) * 2.2); height: calc(var(--pot) * 1.3); }
   }
   @media (min-aspect-ratio: 1/1) and (max-height: 520px) {
     :root { --pot: clamp(32px, 11vh, 52px); }
     #side { gap: 12px; }
     #pots { grid-template-columns: repeat(3, var(--pot)); }
-    #doneBtn { width: calc(var(--pot) * 3.4); height: calc(var(--pot) * 1.2); }
+    #doneBtn { width: calc(var(--pot) * 3.4); height: var(--pot); }
+    #homeBtn { width: calc(var(--pot) * 1.6); height: var(--pot); }
   }
 
   /* ---------- alive ---------- */
@@ -155,19 +143,17 @@
   @keyframes talk { 0%,100% { transform: scale(1.04) rotate(-1.5deg); } 50% { transform: scale(1.08) rotate(1.5deg) translateY(-6px); } }
   #aliveCr.bug.fly { animation: fly 2.4s ease-in-out !important; }
   @keyframes fly { 0% { transform: none; } 25% { transform: translate(-22vw, -18vh) rotate(-25deg) scale(.7); } 50% { transform: translate(0, -26vh) rotate(0) scale(.6); } 75% { transform: translate(22vw, -14vh) rotate(25deg) scale(.7); } 100% { transform: none; } }
-  #micBtn {
-    position: absolute; left: 50%; bottom: calc(62px + env(safe-area-inset-bottom)); transform: translateX(-50%);
-    width: clamp(84px, 15vh, 124px); height: clamp(84px, 15vh, 124px); border-radius: 50%;
+  /* "your turn": a speech bubble while the child answers out loud (nothing is recorded) */
+  #turn {
+    position: absolute; left: 50%; bottom: calc(58px + env(safe-area-inset-bottom)); transform: translateX(-50%);
+    width: clamp(120px, 20vh, 170px); pointer-events: none; animation: popin .3s ease-out;
+    filter: drop-shadow(0 5px 0 rgba(0,0,0,.18));
   }
-  #micBtn:active { transform: translateX(-50%) translateY(6px); }
-  #micBtn.pulse { animation: micpulse 1.1s ease-in-out infinite; }
-  @keyframes micpulse { 50% { transform: translateX(-50%) scale(1.1); } }
-  #micRing {
-    position: absolute; inset: -14px; border-radius: 50%; border: 8px solid #fff; opacity: 0; pointer-events: none;
-    transform: scale(var(--lv, 1)); transition: transform .08s linear;
-  }
-  #micBtn.listen { --b: #ff5a4f; }
-  #micBtn.listen #micRing { opacity: .9; }
+  #turn svg { display: block; width: 100%; height: auto; }
+  #turn .dot { transform-box: fill-box; transform-origin: center; animation: dotb 1s ease-in-out infinite; }
+  #turn .dot:nth-of-type(2) { animation-delay: .15s; }
+  #turn .dot:nth-of-type(3) { animation-delay: .3s; }
+  @keyframes dotb { 40% { transform: translateY(-9px); } 80% { transform: none; } }
   #nextBtn { position: absolute; right: calc(16px + env(safe-area-inset-right)); bottom: calc(66px + env(safe-area-inset-bottom)); width: 104px; height: 88px; }
 
   /* ---------- book ---------- */
@@ -180,7 +166,6 @@
   .bcard.empty .cr { opacity: .35; }
   .bcard.new { animation: newcard 1s cubic-bezier(.3,1.6,.5,1); outline: 6px solid var(--gold); outline-offset: 4px; }
   @keyframes newcard { from { transform: scale(.3) rotate(-10deg); } to { transform: none; } }
-  #bookNext { position: absolute; right: calc(16px + env(safe-area-inset-right)); bottom: calc(66px + env(safe-area-inset-bottom)); width: 104px; height: 88px; }
 
   /* ---------- night ---------- */
   #scrNight { flex-direction: column; align-items: center; justify-content: flex-end; }
@@ -216,12 +201,6 @@
   <button id="playBtn" class="blk green" aria-label="play"><svg viewBox="0 0 100 100"><path d="M30 18 L84 50 L30 82 Z"/></svg></button>
 </section>
 
-<section id="scrPick" class="scr">
-  <button class="pcard" id="pick0"></button>
-  <button class="pcard" id="pick1"></button>
-  <button id="bookBtn" class="blk gold" aria-label="book"><svg viewBox="0 0 100 100"><path d="M10 22 Q30 12 48 22 L48 86 Q30 76 10 86 Z M52 22 Q70 12 90 22 L90 86 Q70 76 52 86 Z"/></svg></button>
-</section>
-
 <section id="scrPaint" class="scr">
   <div id="artWrap">
     <div id="art">
@@ -232,6 +211,7 @@
     </div>
   </div>
   <div id="side">
+    <button id="homeBtn" class="blk gold" aria-label="home"><svg viewBox="0 0 100 100"><path d="M50 10 L92 48 H79 V88 H58 V64 H42 V88 H21 V48 H8 Z"/></svg></button>
     <div id="pots"></div>
     <button id="doneBtn" class="blk green" aria-label="done"><svg viewBox="0 0 100 100"><path d="M14 52 L28 38 L43 53 L76 18 L90 32 L43 82 Z"/></svg></button>
   </div>
@@ -241,13 +221,12 @@
   <div id="aliveStage">
     <div id="aliveCr"></div>
   </div>
-  <button id="micBtn" class="blk red" aria-label="talk" hidden><span id="micRing"></span><svg viewBox="0 0 100 100"><rect x="36" y="10" width="28" height="50" rx="14"/><path d="M24 44 a26 26 0 0 0 52 0 h-8 a18 18 0 0 1 -36 0 z"/><rect x="46" y="70" width="8" height="14"/><rect x="32" y="82" width="36" height="8" rx="4"/></svg></button>
+  <div id="turn" hidden><svg viewBox="0 0 170 120"><path d="M20 8 H150 Q162 8 162 20 V78 Q162 90 150 90 H98 L85 112 L72 90 H20 Q8 90 8 78 V20 Q8 8 20 8 Z" fill="#fff" stroke="#2b2118" stroke-width="6" stroke-linejoin="round"/><circle class="dot" cx="55" cy="49" r="11" fill="#2b2118"/><circle class="dot" cx="85" cy="49" r="11" fill="#2b2118"/><circle class="dot" cx="115" cy="49" r="11" fill="#2b2118"/></svg></div>
   <button id="nextBtn" class="blk" aria-label="next" hidden><svg viewBox="0 0 100 100"><path d="M12 38 H56 V16 L92 50 L56 84 V62 H12 Z"/></svg></button>
 </section>
 
 <section id="scrBook" class="scr">
   <div id="bookGrid"></div>
-  <button id="bookNext" class="blk" aria-label="next"><svg viewBox="0 0 100 100"><path d="M12 38 H56 V16 L92 50 L56 84 V62 H12 Z"/></svg></button>
 </section>
 
 <section id="scrNight" class="scr">
@@ -831,111 +810,6 @@
     try { s.g.gain.setTargetAtTime(0, actx.currentTime, .03); s.n.stop(actx.currentTime + .15); } catch (e) { /* ignore */ }
   }
 
-  // The microphone: listen until the child says something, then give it back as an AudioBuffer.
-  // Nothing is judged and nothing is saved or sent anywhere.
-  let micStop = null, micDenied = false;
-  function micSupported() { return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && actx && actx.createScriptProcessor); }
-  async function micListen(onLevel, maxWait) {
-    // no echo cancellation: on iPad it switches on "voice processing", which makes everything quieter afterwards
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
-    if (actx.state === "suspended") { try { await actx.resume(); } catch (e) { /* ignore */ } }
-    return new Promise(resolve => {
-      const src = actx.createMediaStreamSource(stream), proc = actx.createScriptProcessor(2048, 1, 1), sink = actx.createGain();
-      sink.gain.value = 0; src.connect(proc); proc.connect(sink); sink.connect(actx.destination);
-      const sr = actx.sampleRate, pre = [], rec = [];
-      let preLen = 0, t = 0, floor = 1, speaking = false, spoke = 0, quiet = 0, done = false;
-      const finish = keep => {
-        if (done) return; done = true;
-        proc.onaudioprocess = null;
-        try { src.disconnect(); proc.disconnect(); sink.disconnect(); } catch (e) { /* ignore */ }
-        stream.getTracks().forEach(tr => tr.stop());
-        micStop = null; onLevel(0);
-        if (!keep || !rec.length) { resolve(null); return; }
-        const len = rec.reduce((a, b) => a + b.length, 0), buf = actx.createBuffer(1, len, sr), out = buf.getChannelData(0);
-        let o = 0, peak = 0;
-        for (const c of rec) { out.set(c, o); o += c.length; }
-        for (let k = 0; k < len; k++) { const v = Math.abs(out[k]); if (v > peak) peak = v; }
-        const g = peak > 0 ? Math.min(10, .95 / peak) : 1, fade = Math.min(len, Math.round(sr * .03));
-        for (let k = 0; k < len; k++) out[k] *= g;
-        for (let k = 0; k < fade; k++) { out[k] *= k / fade; out[len - 1 - k] *= k / fade; }
-        resolve(buf);
-      };
-      micStop = () => finish(false);
-      proc.onaudioprocess = e => {
-        const d = new Float32Array(e.inputBuffer.getChannelData(0)), dt = d.length / sr;
-        let s = 0; for (let k = 0; k < d.length; k++) s += d[k] * d[k];
-        const rms = Math.sqrt(s / d.length); t += dt;
-        if (t < .4) floor = Math.min(floor, rms);                  // the quietest moment = the room
-        const th = Math.min(.08, Math.max(.025, floor * 3));
-        onLevel(Math.min(1, rms / (th * 4)));
-        if (!speaking) {
-          pre.push(d); preLen += d.length;
-          while (preLen > sr * .3) preLen -= pre.shift().length;
-          if (t > .4 && rms > th) { speaking = true; rec.push.apply(rec, pre); }
-          else if (t > maxWait) finish(false);
-        } else {
-          rec.push(d); spoke += dt;
-          quiet = rms < th * .6 ? quiet + dt : 0;
-          if ((quiet > .6 && spoke > .35) || spoke > 3.5) finish(true);
-        }
-      };
-    });
-  }
-  // make the voice shorter/longer (x f) without changing its pitch (WSOLA), so playing it at rate f gives the old length at a new pitch
-  function stretch(x, sr, f) {
-    const W = Math.round(sr * .04) & ~1, Hs = W / 2, Ha = Hs / f, D = Math.round(sr * .012);
-    if (x.length < W * 2) return x;
-    const win = new Float32Array(W);
-    for (let i = 0; i < W; i++) win[i] = .5 - .5 * Math.cos(2 * Math.PI * i / W);
-    const outLen = Math.floor(x.length * f), y = new Float32Array(outLen + W), nrm = new Float32Array(outLen + W);
-    let nat = 0;                                   // where the last grain would naturally continue
-    for (let k = 0; k * Hs < outLen; k++) {
-      const nom = Math.round(k * Ha);
-      let best = Math.min(Math.max(0, nom), x.length - W);
-      if (k > 0) {                                 // pick the nearby grain that lines up best with the last one
-        let bc = -Infinity;
-        const lo = Math.max(0, nom - D), hi = Math.min(x.length - W, nom + D);
-        for (let c = lo; c <= hi; c += 2) {
-          let sum = 0;
-          for (let i = 0; i < W; i += 8) sum += x[c + i] * x[nat + i];
-          if (sum > bc) { bc = sum; best = c; }
-        }
-      }
-      const o = k * Hs;
-      for (let i = 0; i < W; i++) { y[o + i] += x[best + i] * win[i]; nrm[o + i] += win[i]; }
-      nat = Math.min(best + Hs, x.length - W);
-    }
-    for (let i = 0; i < outLen; i++) if (nrm[i] > .1) y[i] /= nrm[i];
-    return y.subarray(0, outLen);
-  }
-  function louder(y, sr) {                         // gentle compressor, then back up to full volume
-    const att = Math.exp(-1 / (sr * .005)), rel = Math.exp(-1 / (sr * .12)), th = .12;
-    let env = 0, peak = 0;
-    for (let i = 0; i < y.length; i++) {
-      const a = Math.abs(y[i]);
-      env = a > env ? att * env + (1 - att) * a : rel * env + (1 - rel) * a;
-      if (env > th) y[i] *= Math.pow(env / th, 1 / 3 - 1);
-      if (Math.abs(y[i]) > peak) peak = Math.abs(y[i]);
-    }
-    if (peak > 0) { const g = .95 / peak; for (let i = 0; i < y.length; i++) y[i] *= g; }
-    return y;
-  }
-  // play the child's voice back as the creature: lower for roarers (dinosaurs, lions), higher for bugs.
-  // The words keep their normal speed, so they are easy to catch.
-  const ECHO_PITCH = { roar: .6, bug: 1.35 };
-  function playEcho(buf, kind) {
-    const pitch = ECHO_PITCH[kind] || 1, sr = buf.sampleRate;
-    try {
-      const y = stretch(louder(new Float32Array(buf.getChannelData(0)), sr), sr, pitch);   // playing at rate `pitch` undoes the length change
-      const b2 = actx.createBuffer(1, y.length, sr); b2.getChannelData(0).set(y);
-      const src = actx.createBufferSource(), f = actx.createBiquadFilter();
-      src.buffer = b2; src.playbackRate.value = pitch;
-      f.type = kind === "roar" ? "lowpass" : "highpass"; f.frequency.value = kind === "roar" ? 4500 : 220;
-      src.connect(f); f.connect(actx.destination); src.start();
-      return b2.duration / pitch;
-    } catch (e) { return buf.duration; }
-  }
-
   // ---------------------------------------------------------------
   // SCREENS
   // ---------------------------------------------------------------
@@ -943,7 +817,6 @@
   const later = (fn, ms) => { timers.push(setTimeout(fn, ms)); };
   function show(id) {
     timers.forEach(clearTimeout); timers = [];
-    if (micStop) micStop();
     scribbleOff(); hideHand();
     document.querySelectorAll(".scr").forEach(s => s.classList.toggle("on", s.id === id));
     document.body.classList.toggle("night", id === "scrNight");
@@ -951,7 +824,8 @@
   const article = w => /^[aeiou]/i.test(w) ? "an " : "a ";
   const introLine = (cr, word) => (cr.kind === "roar" ? "Roar! " : "Hello! ") + "I'm " + article(word) + word + " " + cr.name + "!";
 
-  let sessionDone = 0, sessionIds = [], lastId = null;
+  let sessionDone = 0, sessionIds = [];
+  const drafts = {};                               // unfinished pictures (kept while the app is open)
 
   // ----- start -----
   function showStart() {
@@ -961,37 +835,8 @@
   $("playBtn").onclick = () => {
     unlockAudio(); tone(523, .12, "square", .06); setTimeout(() => tone(784, .18, "square", .06), 110);
     sayQ([{ t: "Let's color!" }]);
-    setTimeout(showPick, 900);
+    setTimeout(() => showHome(null), 900);
   };
-
-  // ----- pick: "Which do you like?" -----
-  let picking = false;
-  function showPick() {
-    show("scrPick"); picking = false;
-    const pool = CREATURES.filter(c => c.id !== lastId).map(c => ({ c: c, k: (save.book[c.id] ? 1 : 0) + Math.random() * .9 }));
-    pool.sort((a, b) => a.k - b.k);
-    const two = [pool[0].c, pool[1].c];
-    two.forEach((cr, i) => {
-      const el = $("pick" + i), b = save.book[cr.id];
-      el.innerHTML = creatureSVG(cr, b ? { img: b.img } : {});
-      el.onclick = () => choose(cr, el);
-      el.classList.remove("wiggle");
-    });
-    const wig = i => { const el = $("pick" + i); el.classList.remove("wiggle"); void el.offsetWidth; el.classList.add("wiggle"); };
-    later(() => sayQ([
-      { t: "Which do you like?" },
-      { t: "The " + two[0].name + "?", on: () => wig(0) },
-      { t: "Or the " + two[1].name + "?", on: () => wig(1) }
-    ]), 350);
-  }
-  function choose(cr, el) {
-    if (picking) return; picking = true;
-    unlockAudio(); sfxPot();
-    el.classList.remove("wiggle"); void el.offsetWidth; el.classList.add("wiggle");
-    sayQ([{ t: "The " + cr.name + "! Let's color!" }]);
-    later(() => startPaint(cr), 1500);
-  }
-  $("bookBtn").onclick = () => { unlockAudio(); showBook(null); };
 
   // ----- paint -----
   const POTS = [
@@ -1028,7 +873,7 @@
     else { ctx.fillStyle = style; ctx.fill(P2[i]); }
   }
   function startPaint(cr) {
-    cur = cr; lastId = cr.id; actions = 0; hints = 0;
+    cur = cr; actions = 0; hints = 0;
     show("scrPaint");
     P2 = cr.parts.map(q => new Path2D(q.d));
     const p = "p" + (++UID) + "_";
@@ -1042,6 +887,7 @@
     buildGrid(cr);
     pctx.setTransform(1, 0, 0, 1, 0, 0); pctx.clearRect(0, 0, cw, ch);
     tctx.setTransform(1, 0, 0, 1, 0, 0); tctx.clearRect(0, 0, cw, ch);
+    if (drafts[cr.id]) { pctx.drawImage(drafts[cr.id].cv, 0, 0, cw, ch); restoreCoverage(); actions = 2; countAction(); }
     later(() => sayQ([{ t: "Pick a color!" }]), 200);
     activity();
   }
@@ -1089,6 +935,22 @@
       }
     }
   }
+  // after bringing back an unfinished picture: count what is already painted
+  function restoreCoverage() {
+    const c = document.createElement("canvas"); c.width = GW; c.height = GH;
+    const x = c.getContext("2d"); x.drawImage(pc, 0, 0, GW, GH);
+    const d = x.getImageData(0, 0, GW, GH).data;
+    for (let k = 0; k < GW * GH; k++) if (owner[k] >= 0 && d[k * 4 + 3] > 160) { painted[k] = 1; pHit[owner[k]]++; }
+    pHit.forEach((h, i) => { if (pCells[i] && h / pCells[i] > .95) { pDone[i] = true; pHit[i] = -1e6; } });
+  }
+  function keepDraft() {
+    if (!cur || !actions) return;
+    const c = document.createElement("canvas"); c.width = 600; c.height = 480;
+    c.getContext("2d").drawImage(pc, 0, 0, 600, 480);
+    drafts[cur.id] = { cv: c, url: c.toDataURL("image/png") };
+  }
+  $("homeBtn").onclick = () => { unlockAudio(); stopSay(); keepDraft(); showHome(null); };
+
   // mark the cells under a bit of brush; a part that is painted enough fills itself in
   function markPaint(x1, y1, x2, y2) {
     const R = BRUSH / 2 * .9, dx = x2 - x1, dy = y2 - y1, L2 = dx * dx + dy * dy, touched = [];
@@ -1278,95 +1140,77 @@
     const prev = save.book[cur.id];
     save.book[cur.id] = { img: snapshot(600, 480, .82), color: word, n: (prev ? prev.n : 0) + 1, at: Date.now() };
     if (!store()) { save.book[cur.id].img = snapshot(400, 320, .6); if (!store()) { /* storage full: keep for this visit only */ } }
+    delete drafts[cur.id];
     sessionDone++; if (sessionIds.indexOf(cur.id) < 0) sessionIds.push(cur.id);
     showAlive(cur, word);
   };
 
-  // ----- alive: the creature talks, and copies what the child says -----
-  let aliveCr = null, round = 0, micBusy = false, tapMode = false;
+  // ----- alive: the creature talks; the child answers out loud (nothing is recorded or judged) -----
+  const WHY = {
+    red: "it's cool", orange: "it's like an orange", yellow: "it's like the sun", green: "it's like the leaves",
+    blue: "it's like the sky", purple: "it's pretty", pink: "it's cute", brown: "it's like chocolate",
+    black: "it's like the night", white: "it's like snow", rainbow: "it has all the colors"
+  };
+  let aliveCr = null;
   function act(cls, ms) {
     const el = $("aliveCr"); el.classList.add(cls);
     later(() => el.classList.remove(cls), ms);
   }
+  function yourTurn(then) {                        // a pause with a speech bubble
+    $("turn").hidden = false;
+    later(() => { $("turn").hidden = true; then(); }, 3500);
+  }
   function showAlive(cr, word) {
-    show("scrAlive"); aliveCr = cr; round = 0; micBusy = false; tapMode = false;
-    const el = $("aliveCr"), b = save.book[cr.id];
+    show("scrAlive"); aliveCr = cr;
+    const el = $("aliveCr"), b = save.book[cr.id], roar = cr.kind === "roar", fav = word.split(" ")[0];
     el.innerHTML = creatureSVG(cr, { img: b.img });
     el.className = cr.kind + " popin";
     later(() => { el.classList.remove("popin"); el.classList.add("idle"); }, 750);
-    $("micBtn").hidden = true; $("nextBtn").hidden = true; $("nextBtn").classList.remove("pulse");
+    $("turn").hidden = true; $("nextBtn").hidden = true; $("nextBtn").classList.remove("pulse");
     sfxTwinkle();
+    const answer1 = () => {
+      if (roar) { growl(1.1, .25); act("talk", 1200); } else { buzz(2.2, .06); act("fly", 2400); }
+      later(() => sayQ([
+        { t: roar ? "Wow! Big roar!" : "Hello! Hello!", who: roar ? "narr" : "bug" },
+        { t: "What color do you like?", who: cr.kind }
+      ], () => yourTurn(answer2)), roar ? 1300 : 2500);
+    };
+    const answer2 = () => sayQ([{ t: "I like " + fav + ", because " + (WHY[fav] || "it's cool") + "!", who: cr.kind, on: () => act("talk", 2600) }],
+      () => { $("nextBtn").hidden = false; $("nextBtn").classList.add("pulse"); });
     later(() => {
-      if (cr.kind === "roar") growl(.9, .2); else buzz(.9, .05);
+      if (roar) growl(.9, .2); else buzz(.9, .05);
       sayQ([
         { t: introLine(cr, word), who: cr.kind, on: () => act("talk", 2200) },
-        { t: cr.kind === "roar" ? "Can you roar like a " + cr.name + "?" : "Can you say hello?" }
-      ], askVoice);
+        { t: roar ? "Can you roar like a " + cr.name + "?" : "Can you say hello?" }
+      ], () => yourTurn(answer1));
     }, 800);
     later(() => { $("nextBtn").hidden = false; }, 4000);
   }
-  function askVoice() {
-    if (!micSupported() || micDenied) { tapMode = true; sayQ([{ t: "Tap the " + aliveCr.name + "!" }]); return; }
-    const m = $("micBtn"); m.hidden = false; m.classList.remove("listen"); m.classList.add("pulse");
-  }
-  $("micBtn").onclick = () => {
-    if (micBusy) return;
-    unlockAudio(); stopSay(); micBusy = true;
-    const m = $("micBtn"); m.classList.remove("pulse"); m.classList.add("listen");
-    micListen(lv => { $("micRing").style.setProperty("--lv", 1 + lv * .7); }, 8).then(buf => {
-      micBusy = false; m.classList.remove("listen");
-      if (!buf) { m.classList.add("pulse"); sayQ([{ t: "Tap and talk!" }]); return; }
-      m.hidden = true;
-      later(() => {                                // a short pause lets the iPad switch from "recording" back to "playing"
-        const dur = playEcho(buf, aliveCr.kind), fly = aliveCr.kind === "bug" && round === 0, ms = Math.max(dur * 1000, fly ? 2400 : 0);
-        act(fly ? "fly" : "talk", ms);
-        later(afterVoice, ms + 500);
-      }, 250);
-    }).catch(() => {
-      micBusy = false; micDenied = true; m.hidden = true; m.classList.remove("listen");
-      tapMode = true; sayQ([{ t: "Tap the " + aliveCr.name + "!" }]);
-    });
-  };
-  function afterVoice() {
-    round++;
-    if (round === 1) {
-      sayQ([
-        { t: aliveCr.kind === "roar" ? "Wow! Big roar!" : "Hello! Hello!", who: aliveCr.kind === "roar" ? "narr" : "bug" },
-        { t: "What color do you like?", who: aliveCr.kind }
-      ], askVoice);
-    } else {
-      sayQ([{ t: "Cool! Thank you!", who: aliveCr.kind, on: () => act("talk", 1200) }], () => {
-        $("nextBtn").hidden = false; $("nextBtn").classList.add("pulse");
-      });
-    }
-  }
-  $("aliveCr").onclick = () => {
+  $("aliveCr").onclick = () => {                   // tap the creature any time
     unlockAudio();
-    if (micBusy) return;
     if (aliveCr.kind === "roar") { growl(1, .25); act("talk", 1000); }
     else { buzz(2.2, .06); act("fly", 2400); }
-    if (tapMode) { tapMode = false; later(() => afterVoice(), 1300); }
   };
-  $("nextBtn").onclick = () => { unlockAudio(); stopSay(); showBook(aliveCr.id); };
+  $("nextBtn").onclick = () => { unlockAudio(); stopSay(); if (sessionDone >= SESSION_MAX) showNight(); else showHome(aliveCr.id); };
 
-  // ----- book -----
-  function showBook(newId) {
+  // ----- home: every creature; tap one to color it (again) -----
+  function showHome(newId) {
     show("scrBook"); bookGo = false;
     const g = $("bookGrid");
     g.innerHTML = CREATURES.map(cr => {
-      const b = save.book[cr.id];
-      return '<button class="bcard' + (b ? "" : " empty") + (cr.id === newId ? " new" : "") + '" data-id="' + cr.id + '">' + creatureSVG(cr, b ? { img: b.img } : {}) + '</button>';
+      const img = drafts[cr.id] ? drafts[cr.id].url : save.book[cr.id] && save.book[cr.id].img;
+      return '<button class="bcard' + (img ? "" : " empty") + (cr.id === newId ? " new" : "") + '" data-id="' + cr.id + '">' + creatureSVG(cr, img ? { img: img } : {}) + '</button>';
     }).join("");
     layoutBook();
     const nc = newId && g.querySelector('[data-id="' + newId + '"]');
     if (nc && nc.scrollIntoView) nc.scrollIntoView({ block: "nearest" });
-    if (newId) { sfxTwinkle(); later(() => sayQ([{ t: "Your " + byId(newId).name + " is in the book!" }]), 500); }
-    else later(() => sayQ([{ t: "Your book!" }]), 200);
+    if (newId) { sfxTwinkle(); later(() => sayQ([{ t: "Your " + byId(newId).name + " is in the book!" }, { t: "Which do you like?" }]), 500); }
+    else later(() => sayQ([{ t: "Which do you like?" }]), 300);
   }
   // as many columns as make the cards biggest while everything fits; scroll only on small phones
   function layoutBook() {
     const g = $("bookGrid"), n = CREATURES.length, gap = 14, pad = 12, wide = innerWidth > innerHeight;
-    const W = innerWidth - (wide ? 260 : 28) - pad, H = innerHeight - 76 - (wide ? 0 : 110) - pad;
+    const W = innerWidth - (wide ? 80 : 28) - pad, H = innerHeight - 76 - pad;
     let best = 1, bw = 0;
     for (let c = 1; c <= n; c++) {
       const r = Math.ceil(n / c), w = Math.min((W - (c - 1) * gap) / c, (H - (r - 1) * gap) / r * VW / VH);
@@ -1379,19 +1223,12 @@
   let bookGo = false;
   $("bookGrid").addEventListener("click", e => {
     const c = e.target.closest(".bcard"); if (!c || bookGo) return;
-    unlockAudio();
-    const cr = byId(c.dataset.id), b = save.book[cr.id];
+    unlockAudio(); sfxPot(); bookGo = true;
+    const cr = byId(c.dataset.id);
     c.classList.remove("wiggle", "new"); void c.offsetWidth; c.classList.add("wiggle");
-    if (b) {
-      if (cr.kind === "roar") growl(.7, .15); else buzz(.7, .04);
-      sayQ([{ t: introLine(cr, b.color), who: cr.kind }]);
-    } else {
-      bookGo = true;
-      sayQ([{ t: "Let's color the " + cr.name + "!" }]);
-      later(() => startPaint(cr), 1500);
-    }
+    sayQ([{ t: "The " + cr.name + "! Let's color!" }]);
+    later(() => startPaint(cr), 1300);
   });
-  $("bookNext").onclick = () => { unlockAudio(); stopSay(); if (sessionDone >= SESSION_MAX) showNight(); else showPick(); };
 
   // ----- night: a clear place to stop -----
   function showNight() {
@@ -1406,7 +1243,7 @@
     later(() => sayQ([{ t: "It's night time." }].concat(ids.map(id => ({ t: "Good night, " + byId(id).name + "." }))).concat([{ t: "See you tomorrow!" }])), 600);
     later(() => { $("sunBtn").hidden = false; }, 15000);
   }
-  $("sunBtn").onclick = () => { unlockAudio(); sessionDone = 0; sessionIds = []; sayQ([{ t: "Good morning!" }]); showPick(); };
+  $("sunBtn").onclick = () => { unlockAudio(); sessionDone = 0; sessionIds = []; sayQ([{ t: "Good morning!" }]); showHome(null); };
 
   // ---------------------------------------------------------------
   // iOS: no zoom / callouts while little hands are everywhere
@@ -1414,10 +1251,10 @@
   document.addEventListener("gesturestart", e => e.preventDefault());
   document.addEventListener("contextmenu", e => e.preventDefault());
   document.addEventListener("dblclick", e => e.preventDefault());
-  document.addEventListener("visibilitychange", () => { if (document.hidden) { stopSay(); if (micStop) micStop(); scribbleOff(); } });
+  document.addEventListener("visibilitychange", () => { if (document.hidden) { stopSay(); scribbleOff(); } });
 
   // debug handle for automated checks
-  window.__nz = { save: () => save, colorWord: colorWord, CREATURES: CREATURES, showAlive: showAlive, showNight: showNight, showBook: showBook, sessionIds: () => sessionIds, creatureSVG: creatureSVG, byId: byId, startPaint: startPaint, playEcho: playEcho, unlock: unlockAudio, actx: () => actx };
+  window.__nz = { save: () => save, colorWord: colorWord, CREATURES: CREATURES, showAlive: showAlive, showNight: showNight, showHome: showHome, sessionIds: () => sessionIds, creatureSVG: creatureSVG, byId: byId, startPaint: startPaint, unlock: unlockAudio, actx: () => actx };
 
   // developer views: #lab (all art), #paint=trex (jump straight in)
   const hash = location.hash.slice(1);
@@ -1452,7 +1289,7 @@
     return;
   }
   if (hash.indexOf("paint=") === 0 && byId(hash.slice(6))) { startPaint(byId(hash.slice(6))); return; }
-  if (hash === "book") { showBook(null); return; }
+  if (hash === "book") { showHome(null); return; }
   showStart();
 })();
 </script>
